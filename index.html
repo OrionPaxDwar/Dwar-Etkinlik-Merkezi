@@ -7,8 +7,6 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- OTP Library for 2FA -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/otpauth/9.1.4/otpauth.umd.min.js"></script>
-    <!-- EmailJS Library -->
-    <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;700;900&display=swap');
         
@@ -28,7 +26,7 @@
         }
 
         /* --- LOGIN & MODAL STİLLERİ --- */
-        #login-overlay, #setup-overlay {
+        #login-overlay, #setup-overlay, #reset-overlay {
             position: fixed;
             top: 0; left: 0; width: 100%; height: 100%;
             background: #0f172a;
@@ -40,8 +38,8 @@
             flex-direction: column;
         }
         
-        #setup-overlay { display: none; z-index: 10000; background: rgba(15, 23, 42, 0.98); backdrop-filter: blur(15px); }
-        #setup-overlay.active { display: flex; }
+        #setup-overlay, #reset-overlay { display: none; z-index: 10000; background: rgba(15, 23, 42, 0.98); backdrop-filter: blur(15px); }
+        #setup-overlay.active, #reset-overlay.active { display: flex; }
 
         .login-card {
             background: rgba(30, 41, 59, 0.8);
@@ -54,6 +52,7 @@
             max-width: 400px;
             text-align: center;
             transition: all 0.5s ease;
+            position: relative;
         }
 
         .login-input {
@@ -364,7 +363,7 @@
         </div>
     </div>
 
-    <!-- İLK KURULUM EKRANI (SETUP) - ARTIK OTP İÇERİYOR -->
+    <!-- İLK KURULUM EKRANI (SETUP) - OTP ILE DIREKT ONAY -->
     <div id="setup-overlay">
         <div class="login-card border-orange-500/50">
             <h2 class="text-3xl font-black text-orange-500 uppercase tracking-widest mb-2">HESAP KURULUMU</h2>
@@ -372,34 +371,58 @@
             
             <!-- Setup Form -->
             <div id="setup-form-container">
-                <form onsubmit="event.preventDefault(); sendSetupVerificationCode();">
+                <form onsubmit="event.preventDefault(); proceedToSetupOTP();">
                     <input type="text" id="setup-user" class="login-input" placeholder="YENİ KULLANICI ADI" required>
-                    <input type="email" id="setup-email" class="login-input" placeholder="E-POSTA ADRESİ" required>
                     <input type="password" id="setup-pass" class="login-input" placeholder="YENİ ŞİFRE" required>
                     <input type="password" id="setup-pass-2" class="login-input" placeholder="ŞİFRE TEKRAR" required>
                     
                     <div class="text-[10px] text-sky-400 mb-4 italic text-left p-2 bg-slate-900 rounded">
                         * Bu bilgiler kalıcı olacaktır.<br>
                         * Varsayılan şifreler iptal edilecektir.<br>
-                        * E-posta adresinize doğrulama kodu gönderilecektir.
+                        * Onay için Authenticator kodu gereklidir.
                     </div>
 
-                    <button type="submit" id="btn-send-code" class="login-btn bg-orange-600">KOD GÖNDER & KAYDET 📩</button>
+                    <button type="submit" id="btn-setup-next" class="login-btn bg-orange-600">DEVAM ET ➡️</button>
                 </form>
             </div>
 
             <!-- Setup OTP Verify -->
             <div id="setup-otp-container" class="hidden">
-                 <p class="text-emerald-400 text-xs font-bold mb-4 uppercase">E-POSTA DOĞRULAMA KODU</p>
-                 <p class="text-[10px] text-slate-400 mb-4">Lütfen mail adresinize gelen kodu giriniz.</p>
+                 <p class="text-emerald-400 text-xs font-bold mb-4 uppercase">🔐 GÜVENLİK ONAYI</p>
+                 <p class="text-[10px] text-slate-400 mb-4">İşlemi tamamlamak için Authenticator kodunu girin.</p>
                  <input type="text" id="setup-otp-input" class="login-input otp-input" placeholder="000 000" maxlength="6">
-                 <button onclick="verifySetupOTP()" class="login-btn bg-emerald-600">DOĞRULA VE TAMAMLA ✅</button>
+                 <button onclick="verifyAndFinalizeSetup()" class="login-btn bg-emerald-600">KAYDET VE GİRİŞ YAP ✅</button>
                  <button onclick="cancelSetupOTP()" class="text-slate-500 text-[10px] mt-4 hover:text-white underline">Geri Dön</button>
             </div>
 
              <p id="setup-error" class="text-rose-500 text-xs mt-4 font-bold hidden uppercase"></p>
         </div>
     </div>
+
+    <!-- ŞİFRE DEĞİŞTİRME EKRANI (SECRET RESET) -->
+    <div id="reset-overlay">
+        <div class="login-card border-rose-500/50 relative">
+             <button onclick="document.getElementById('reset-overlay').classList.remove('active')" class="absolute top-4 right-4 text-slate-500 hover:text-white">✕</button>
+             <h2 class="text-2xl font-black text-rose-500 uppercase tracking-widest mb-4">ŞİFRE YENİLEME</h2>
+             
+             <p class="text-xs text-slate-400 mb-4">Şifre değiştirmek için mevcut bilgilerinizi ve Authenticator kodunu girin.</p>
+
+             <div class="space-y-3">
+                 <input type="text" id="reset-user" class="login-input" placeholder="KULLANICI ADI" required>
+                 <input type="password" id="reset-old-pass" class="login-input" placeholder="ESKİ ŞİFRE" required>
+                 <input type="password" id="reset-new-pass" class="login-input" placeholder="YENİ ŞİFRE" required>
+                 
+                 <div class="border-t border-white/10 my-4 pt-4">
+                     <p class="text-yellow-400 text-[10px] font-bold mb-2 uppercase text-center">🔐 ONAY KODU</p>
+                     <input type="text" id="reset-otp" class="login-input otp-input" placeholder="000 000" maxlength="6">
+                 </div>
+
+                 <button onclick="handlePasswordReset()" class="login-btn bg-rose-700">ŞİFREYİ DEĞİŞTİR ✅</button>
+             </div>
+             <p id="reset-error" class="text-rose-500 text-xs mt-4 font-bold hidden uppercase"></p>
+        </div>
+    </div>
+
 
     <!-- ANA UYGULAMA -->
     <div id="app-container" class="h-full flex flex-col p-4 pb-16 hidden">
@@ -609,9 +632,10 @@
         <!-- Header -->
         <header class="flex justify-between items-center mb-4 glass-panel p-4 rounded-2xl">
             <div class="flex items-center gap-4">
-                <!-- LOGO - CLICK HANDLER REMOVED -->
-                <div class="relative group">
-                    <img src="https://dwar.gen.tr/images/dragon_logo.png" alt="Dwar Logo" class="w-14 h-14 object-contain filter drop-shadow-[0_0_8px_rgba(56,189,248,0.5)]">
+                <!-- LOGO - CLICK HANDLER FOR SECRET RESET -->
+                <div class="relative cursor-pointer group" onclick="handleSecretClick()">
+                    <img src="https://dwar.gen.tr/images/dragon_logo.png" alt="Dwar Logo" class="w-14 h-14 object-contain filter drop-shadow-[0_0_8px_rgba(56,189,248,0.5)] group-hover:drop-shadow-[0_0_15px_rgba(244,63,94,0.8)] transition duration-300">
+                    <div class="absolute -top-1 -right-1 w-2 h-2 bg-rose-500 rounded-full opacity-0 group-hover:opacity-100 transition"></div>
                 </div>
                 <div>
                     <h1 class="text-xl font-bold tracking-widest uppercase italic leading-none text-blue-450">DWAR ETKİNLİK MERKEZİ</h1>
@@ -933,15 +957,6 @@
     </div>
 
     <script>
-        // --- EMAILJS CONFIG (Updated) ---
-        const EMAILJS_SERVICE_ID = "service_3tmiz1r"; 
-        const EMAILJS_TEMPLATE_ID = "template_xvou0zs"; 
-        const EMAILJS_PUBLIC_KEY = "K6ILWfNhP6ZEkQVq8"; 
-
-        (function(){
-            if(window.emailjs) emailjs.init(EMAILJS_PUBLIC_KEY);
-        })();
-
         // --- AUTH CONSTANTS ---
         const DEFAULT_USERS = {
             "orion pax": "orion pax",
@@ -953,7 +968,6 @@
 
         // Local State
         let loggedInUser = "";
-        let setupOtpCode = ""; // Generated Setup OTP
         let pendingSetupData = null; // Data to be saved after OTP verify
 
         // --- STATS FILTER STATE ---
@@ -999,71 +1013,61 @@
             document.getElementById('setup-overlay').classList.add('active');
         }
 
-        // --- SETUP LOGIC WITH OTP ---
-        function sendSetupVerificationCode() {
+        // --- SETUP LOGIC (NEW: NO EMAIL, OTP REQUIRED) ---
+        function proceedToSetupOTP() {
             const u = document.getElementById('setup-user').value.toLowerCase().trim();
-            const e = document.getElementById('setup-email').value.trim();
             const p1 = document.getElementById('setup-pass').value;
             const p2 = document.getElementById('setup-pass-2').value;
 
             if (u.length < 3) return showSetupError("Kullanıcı adı çok kısa.");
             if (p1.length < 4) return showSetupError("Şifre en az 4 karakter olmalı.");
             if (p1 !== p2) return showSetupError("Şifreler eşleşmiyor.");
-            if (!e.includes('@')) return showSetupError("Geçerli bir e-posta girin.");
 
-            // Kodu oluştur
-            setupOtpCode = Math.floor(100000 + Math.random() * 900000).toString();
-            
             // Geçici olarak veriyi sakla
-            pendingSetupData = { username: u, password: p1, email: e };
+            pendingSetupData = { username: u, password: p1 };
 
-            const btn = document.getElementById('btn-send-code');
-            btn.innerText = "GÖNDERİLİYOR...";
-            btn.disabled = true;
-
-            // EmailJS Gönderimi
-            const templateParams = {
-                to_email: e,
-                passcode: setupOtpCode,
-                time: new Date().toLocaleTimeString(),
-                "Company Name": "Dwar Etkinlik Merkezi"
-            };
-
-            emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, templateParams)
-                .then(function(response) {
-                    alert(`✅ Doğrulama kodu ${e} adresine gönderildi!`);
-                    document.getElementById('setup-form-container').classList.add('hidden');
-                    document.getElementById('setup-otp-container').classList.remove('hidden');
-                    btn.innerText = "KOD GÖNDER & KAYDET 📩";
-                    btn.disabled = false;
-                }, function(error) {
-                    console.error('Email Hatası:', error);
-                    showSetupError("Mail gönderilemedi. Lütfen tekrar deneyin.");
-                    btn.innerText = "KOD GÖNDER & KAYDET 📩";
-                    btn.disabled = false;
-                });
+            // Formu gizle, OTP ekranını göster
+            document.getElementById('setup-form-container').classList.add('hidden');
+            document.getElementById('setup-otp-container').classList.remove('hidden');
+            document.getElementById('setup-error').classList.add('hidden');
+            
+            // Focus OTP input
+            document.getElementById('setup-otp-input').value = "";
+            document.getElementById('setup-otp-input').focus();
         }
 
-        function verifySetupOTP() {
-            const input = document.getElementById('setup-otp-input').value.trim();
-            if (input === setupOtpCode && pendingSetupData) {
+        function verifyAndFinalizeSetup() {
+            const code = document.getElementById('setup-otp-input').value.replace(/\s/g, '');
+            
+            if(code.length < 6) {
+                alert("Lütfen 6 haneli kodu giriniz.");
+                return;
+            }
+
+            // Verify with Shared Secret
+            const totp = new OTPAuth.TOTP({ algorithm: 'SHA1', digits: 6, period: 30, secret: OTPAuth.Secret.fromBase32(SECRET_KEY) });
+            const delta = totp.validate({ token: code, window: 1 });
+
+            if (delta !== null && pendingSetupData) {
                 // Başarılı! Kaydet ve Gir.
                 localStorage.setItem(STORAGE_KEY, JSON.stringify(pendingSetupData));
                 alert(`✅ Hesap Başarıyla Oluşturuldu!\nArtık sadece "${pendingSetupData.username}" kullanıcısı ile giriş yapabilirsiniz.`);
                 
                 loggedInUser = pendingSetupData.username;
                 
-                // Setup ekranını kapat, 2FA ekranına (Google Auth) yönlendir veya direkt gir
+                // Setup ekranını kapat
                 document.getElementById('setup-overlay').classList.remove('active');
                 
-                // Login overlay'i tekrar göster ama Step 2'de
-                document.getElementById('login-overlay').classList.remove('hidden');
-                document.getElementById('login-step-1').classList.add('hidden');
-                document.getElementById('login-step-2').classList.remove('hidden');
-                document.getElementById('otp-code').focus();
+                // Login akışını simüle et (2FA ekranına dönmeden direkt giriş yapıyoruz çünkü zaten kod girdi)
+                document.getElementById('login-overlay').style.display = 'none';
+                const appEl = document.getElementById('app-container');
+                appEl.classList.remove('hidden');
+                document.getElementById('user-display-name').innerText = loggedInUser; 
+                window.dispatchEvent(new Event('resize'));
+                if(window.startFirebase) window.startFirebase();
 
             } else {
-                alert("❌ Hatalı Kod!");
+                alert("❌ Hatalı veya Süresi Dolmuş Kod!");
             }
         }
 
@@ -1121,6 +1125,69 @@
             setTimeout(() => document.querySelector('.login-card').classList.remove('pulse-btn'), 500);
         }
 
+        // --- SECRET RESET LOGIC (NEW: USER/OLD/NEW/OTP) ---
+        let secretClickCount = 0;
+        function handleSecretClick() {
+            secretClickCount++;
+            if (secretClickCount >= 5) {
+                secretClickCount = 0;
+                document.getElementById('reset-overlay').classList.add('active');
+                
+                // Alanları temizle
+                document.getElementById('reset-user').value = "";
+                document.getElementById('reset-old-pass').value = "";
+                document.getElementById('reset-new-pass').value = "";
+                document.getElementById('reset-otp').value = "";
+                document.getElementById('reset-error').classList.add('hidden');
+            }
+        }
+
+        function handlePasswordReset() {
+            const user = document.getElementById('reset-user').value.toLowerCase().trim();
+            const oldPass = document.getElementById('reset-old-pass').value;
+            const newPass = document.getElementById('reset-new-pass').value;
+            const otp = document.getElementById('reset-otp').value.replace(/\s/g, '');
+            const errEl = document.getElementById('reset-error');
+
+            if(!user || !oldPass || !newPass || !otp) {
+                errEl.innerText = "Tüm alanları doldurunuz.";
+                errEl.classList.remove('hidden');
+                return;
+            }
+
+            const customData = localStorage.getItem(STORAGE_KEY);
+            if(!customData) {
+                errEl.innerText = "Sistemde kayıtlı özel hesap yok.";
+                errEl.classList.remove('hidden');
+                return;
+            }
+
+            const currentConfig = JSON.parse(customData);
+
+            // 1. Check Credentials
+            if(currentConfig.username !== user || currentConfig.password !== oldPass) {
+                errEl.innerText = "Kullanıcı adı veya eski şifre hatalı.";
+                errEl.classList.remove('hidden');
+                return;
+            }
+
+            // 2. Check OTP
+            const totp = new OTPAuth.TOTP({ algorithm: 'SHA1', digits: 6, period: 30, secret: OTPAuth.Secret.fromBase32(SECRET_KEY) });
+            const delta = totp.validate({ token: otp, window: 1 });
+
+            if(delta !== null) {
+                // Success
+                currentConfig.password = newPass;
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(currentConfig));
+                
+                alert("✅ Şifre başarıyla değiştirildi! Yeni şifrenizle giriş yapabilirsiniz.");
+                location.reload(); // Refresh to login again
+            } else {
+                errEl.innerText = "Authenticator kodu geçersiz.";
+                errEl.classList.remove('hidden');
+            }
+        }
+
         // --- STATS FILTERING LOGIC ---
         window.setStatsFilter = function(type, value) {
             statsFilter[type] = value;
@@ -1141,25 +1208,24 @@
             const search = document.getElementById('stats-search').value.toLowerCase();
             container.innerHTML = '';
             
-            // 1. Data Clone
-            let data = [...window.state.allStats];
+            // Sort by wins (desc) then participation (desc)
+            let data = state.allStats.sort((a,b) => (b.winCount || 0) - (a.winCount || 0) || (b.participationCount || 0) - (a.participationCount || 0));
 
-            // 2. Race Filter
+            // Race Filter Logic
             if (statsFilter.race !== 'all') {
                 data = data.filter(s => {
                     const r = (s.race || "").toLowerCase();
                     if (statsFilter.race === 'magron') return r.includes('magron');
                     if (statsFilter.race === 'human') return r.includes('insan') || r.includes('human');
-                    return true; 
+                    return true;
                 });
             }
 
-            // 3. Search Filter
             if(search) {
                 data = data.filter(s => s.nick.toLowerCase().includes(search));
             }
 
-            // 4. Sort
+            // Sort Re-apply based on filter selection
             data.sort((a,b) => {
                 const winsA = a.winCount || 0;
                 const winsB = b.winCount || 0;
@@ -1167,24 +1233,22 @@
                 const partsB = b.participationCount || 0;
 
                 if (statsFilter.sort === 'wins') {
-                    // Önce kazanma, sonra katılım
                     return winsB - winsA || partsB - partsA;
                 } else {
-                    // Önce katılım, sonra kazanma
                     return partsB - partsA || winsB - winsA;
                 }
             });
 
-            // 5. Render
             data.forEach((s, idx) => {
                 const wins = s.winCount || 0;
                 const parts = s.participationCount || 0;
                 
-                // IRK BELİRLEME
+                // IRK BELİRLEME (Magron Ateş Simgesi)
                 let raceIcon = '<span class="text-slate-600 text-[10px]">-</span>';
                 if(s.race) {
                     const r = s.race.toLowerCase();
                     if(r.includes('magron')) {
+                        // FIRE EMOJI ADDED AS REQUESTED
                         raceIcon = '<div class="flex flex-col items-center"><span class="text-2xl magron-fire">🔥</span><span class="text-[9px] text-red-500 font-bold uppercase tracking-widest mt-1">MAGRON</span></div>';
                     } else if (r.includes('insan') || r.includes('human')) {
                         raceIcon = '<div class="flex flex-col items-center"><span class="text-lg">🛡️</span><span class="text-[9px] text-blue-500 font-bold uppercase">İNSAN</span></div>';
@@ -1194,12 +1258,12 @@
                 }
 
                 container.innerHTML += `
-                    <div class="stats-table-row group" onclick="openStatsDetail('${s.id}')">
-                        <div class="text-center font-bold text-slate-500 group-hover:text-white">${idx + 1}</div>
-                        <div class="font-bold text-white truncate text-sm">${s.nick}</div>
+                    <div class="stats-table-row" onclick="openStatsDetail('${s.id}')">
+                        <div class="text-center font-bold text-slate-500">${idx + 1}</div>
+                        <div class="font-bold text-white truncate">${s.nick}</div>
                         <div class="text-center">${raceIcon}</div>
-                        <div class="text-center text-slate-400 font-mono text-sm">${parts}</div>
-                        <div class="text-center text-emerald-400 font-mono font-bold text-lg">${wins}</div>
+                        <div class="text-center text-slate-400 font-mono">${parts}</div>
+                        <div class="text-center text-emerald-400 font-mono font-bold">${wins}</div>
                         <div class="text-center">
                             <button onclick="window.deleteStat('${s.id}', event)" class="text-rose-500 hover:text-white hover:bg-rose-600 rounded p-1 transition">
                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
@@ -1227,6 +1291,7 @@
             if(history.length === 0) {
                 historyList.innerHTML = '<div class="text-center text-slate-500 italic py-4">Henüz kayıtlı bir kazanç yok.</div>';
             } else {
+                // Reverse chronological order
                 [...history].reverse().forEach(h => {
                     const date = new Date(h.date).toLocaleDateString("tr-TR");
                     historyList.innerHTML += `
@@ -1240,10 +1305,11 @@
                     `;
                 });
             }
+
             document.getElementById('stats-modal').classList.add('active');
         };
 
-        // --- EXISTING GAME LOGIC (Unchanged mostly) ---
+        // --- EXISTING LOGIC (Game logic remains unchanged) ---
         const state = {
             isJoinEnabled: false, users: [], eliminatedUsers: [], currentWinner: null, isBoxOpened: false, boxRewards: [],
             isWheelJoinEnabled: false, wheelUsers: [], eliminatedWheelUsers: [], wheelWinner: null, wheelAngle: 0, isWheelSpinning: false,
@@ -1253,18 +1319,56 @@
             mirrorValues: [], mirrorSelections: 0, mirrorCurrentTotal: 0, mirrorCount: 15, mirrorSelectionIndices: [],
             isRaffleJoinEnabled: false, raffleUsers: [], eliminatedRaffleUsers: [], isRaffleRunning: false,
             isTicketJoinEnabled: false, ticketUsers: [], ticketWinner: null, 
-            winners: [], allStats: [], rewardPool: [], 
+            winners: [],
+            allStats: [], 
+            rewardPool: [], 
             config: { boxCount: 25, rewards: [], wheelRewards: [], mirrorRewardsMap: {}, luckyJackpot: 1000, diceJackpot: 2500, wheelSize: 450 },
             colors: ["#ef4444", "#f97316", "#f59e0b", "#eab308", "#84cc16", "#22c55e", "#10b981", "#06b6d4", "#0ea5e9", "#3b82f6", "#6366f1", "#8b5cf6", "#a855f7", "#d946ef", "#ec4899", "#f43f5e"]
         };
 
         const rulesData = {
-            game: { title: "KUTU OYUNU KURALLARI", text: `<p>1. Yönetici katılımı açar ve oyuncular sisteme dahil olur.</p><p>2. "Oyuncu Seç" butonu ile rastgele bir şanslı kişi belirlenir.</p><p>3. Seçilen oyuncu ekrandaki kutulardan bir numara seçer.</p><p>4. Kutu açılır ve içindeki ödül (veya Pas) oyuncunun olur.</p>` },
-            mirror: { title: "AYNA MODÜLÜ KURALLARI", text: `<p>1. Seçilen oyuncu ekrandaki 15 karttan 3 tanesini seçme hakkına sahiptir.</p><p>2. Kartların arkasında 1, 2 veya 5 puan gizlidir.</p><p>3. Oyuncunun bulduğu 3 puan toplanır.</p><p>4. Toplam puana karşılık gelen ödül, sağdaki ödül piramidinden verilir.</p>` },
-            wheel: { title: "ŞANSLI ÇARK KURALLARI", text: `<p>1. Katılımcılar arasından bir kişi seçilir.</p><p>2. "Çarkı Döndür" butonuna basılır.</p><p>3. Çark durduğunda ibrenin gösterdiği dilimdeki ödül kazanılır.</p><p>4. Ödüller tamamen şansa dayalıdır ve her dilimin gelme ihtimali eşittir.</p>` },
-            lucky: { title: "ŞANS TOPU KURALLARI", text: `<p>1. Oyuncular 1'den 9'a kadar olan rakamlardan oluşan 3 haneli bir kombinasyon seçer (Örn: 1-5-9).</p><p>2. Sistem 3 adet topu rastgele çeker.</p><p>3. <strong>3 Bilenler:</strong> Büyük ödül havuzunu paylaşır.</p><p>4. <strong>2 Bilenler:</strong> Havuzun %50'sini paylaşır.</p><p>5. <strong>1 Bilenler:</strong> Havuzun %25'ini paylaşır.</p>` },
-            dice: { title: "ZAR OYUNU KURALLARI", text: `<p>1. Oyuncular 5 zarın toplamının kaç geleceğini tahmin eder (Min: 5, Max: 30).</p><p>2. "/zar [tahmin]" komutu ile katılım sağlanır.</p><p>3. 5 zar atılır ve gelen rakamlar toplanır.</p><p>4. Toplam sonucu tam bilen oyuncular büyük ödülü eşit olarak paylaşır.</p>` },
-            ticket: { title: "BİLET OYUNU KURALLARI", text: `<p>1. Katılım başladığında her oyuncuya 5 haneli BENZERSİZ bir bilet numarası verilir.</p><p>2. Çekiliş başladığında 5 rakam sırayla belirlenir.</p><p>3. Bilet numarası ekrandaki numara ile tam eşleşen kişi büyük ödülü kazanır.</p>` }
+            game: {
+                title: "KUTU OYUNU KURALLARI",
+                text: `<p>1. Yönetici katılımı açar ve oyuncular sisteme dahil olur.</p>
+                       <p>2. "Oyuncu Seç" butonu ile rastgele bir şanslı kişi belirlenir.</p>
+                       <p>3. Seçilen oyuncu ekrandaki kutulardan bir numara seçer.</p>
+                       <p>4. Kutu açılır ve içindeki ödül (veya Pas) oyuncunun olur.</p>`
+            },
+            mirror: {
+                title: "AYNA MODÜLÜ KURALLARI",
+                text: `<p>1. Seçilen oyuncu ekrandaki 15 karttan 3 tanesini seçme hakkına sahiptir.</p>
+                       <p>2. Kartların arkasında 1, 2 veya 5 puan gizlidir.</p>
+                       <p>3. Oyuncunun bulduğu 3 puan toplanır.</p>
+                       <p>4. Toplam puana karşılık gelen ödül, sağdaki ödül piramidinden verilir.</p>`
+            },
+            wheel: {
+                title: "ŞANSLI ÇARK KURALLARI",
+                text: `<p>1. Katılımcılar arasından bir kişi seçilir.</p>
+                       <p>2. "Çarkı Döndür" butonuna basılır.</p>
+                       <p>3. Çark durduğunda ibrenin gösterdiği dilimdeki ödül kazanılır.</p>
+                       <p>4. Ödüller tamamen şansa dayalıdır ve her dilimin gelme ihtimali eşittir.</p>`
+            },
+            lucky: {
+                title: "ŞANS TOPU KURALLARI",
+                text: `<p>1. Oyuncular 1'den 9'a kadar olan rakamlardan oluşan 3 haneli bir kombinasyon seçer (Örn: 1-5-9).</p>
+                       <p>2. Sistem 3 adet topu rastgele çeker.</p>
+                       <p>3. <strong>3 Bilenler:</strong> Büyük ödül havuzunu paylaşır.</p>
+                       <p>4. <strong>2 Bilenler:</strong> Havuzun %50'sini paylaşır.</p>
+                       <p>5. <strong>1 Bilenler:</strong> Havuzun %25'ini paylaşır.</p>`
+            },
+            dice: {
+                title: "ZAR OYUNU KURALLARI",
+                text: `<p>1. Oyuncular 5 zarın toplamının kaç geleceğini tahmin eder (Min: 5, Max: 30).</p>
+                       <p>2. "/zar [tahmin]" komutu ile katılım sağlanır.</p>
+                       <p>3. 5 zar atılır ve gelen rakamlar toplanır.</p>
+                       <p>4. Toplam sonucu tam bilen oyuncular büyük ödülü eşit olarak paylaşır.</p>`
+            },
+            ticket: {
+                title: "BİLET OYUNU KURALLARI",
+                text: `<p>1. Katılım başladığında her oyuncuya 5 haneli BENZERSİZ bir bilet numarası verilir.</p>
+                       <p>2. Çekiliş başladığında 5 rakam sırayla belirlenir.</p>
+                       <p>3. Bilet numarası ekrandaki numara ile tam eşleşen kişi büyük ödülü kazanır.</p>`
+            }
         };
 
         function showRules(type) {
@@ -1277,8 +1381,12 @@
         }
 
         function closeRules() { document.getElementById('rules-modal').classList.remove('active'); }
-        function getColorForType(type) { const colors = { game: 'text-sky-400', mirror: 'text-purple-400', wheel: 'text-emerald-400', lucky: 'text-yellow-400', dice: 'text-indigo-400', ticket: 'text-amber-400' }; return colors[type] || 'text-white'; }
         
+        function getColorForType(type) {
+            const colors = { game: 'text-sky-400', mirror: 'text-purple-400', wheel: 'text-emerald-400', lucky: 'text-yellow-400', dice: 'text-indigo-400', ticket: 'text-amber-400' };
+            return colors[type] || 'text-white';
+        }
+
         function init() { 
             window.state = state;
             updateSettingsAndSync(); 
@@ -1292,7 +1400,7 @@
             createMirrorGrid();
         }
         
-        // --- POOL & COMMON FUNCTIONS ---
+        // --- POOL FUNCTIONS ---
         function addRewardToPool() {
             const name = document.getElementById('pool-reward-name').value.trim();
             const img = document.getElementById('pool-reward-image').value.trim();
@@ -1303,16 +1411,47 @@
             document.getElementById('pool-reward-name').value = "";
             document.getElementById('pool-reward-image').value = "";
         }
-        function removeRewardFromPool(id) { if(!confirm("Bu ödülü havuzdan silmek istediğinize emin misiniz?")) return; state.rewardPool = state.rewardPool.filter(r => r.id !== id); window.renderRewardPool(); window.savePoolToFirestore(); }
-        function appendToConfig(type, id) { const item = state.rewardPool.find(r => r.id === id); if(!item) return; let textToAdd = item.name; if(item.image) { textToAdd += ` | ${item.image}`; } textToAdd += "\n"; if(type === 'box') { document.getElementById('reward-input').value += textToAdd; } else if (type === 'wheel') { document.getElementById('wheel-reward-input').value += textToAdd; } alert("Ödül ilgili listeye eklendi!"); }
+
+        function removeRewardFromPool(id) {
+            if(!confirm("Bu ödülü havuzdan silmek istediğinize emin misiniz?")) return;
+            state.rewardPool = state.rewardPool.filter(r => r.id !== id);
+            window.renderRewardPool();
+            window.savePoolToFirestore();
+        }
+
+        function appendToConfig(type, id) {
+            const item = state.rewardPool.find(r => r.id === id);
+            if(!item) return;
+            let textToAdd = item.name;
+            if(item.image) { textToAdd += ` | ${item.image}`; }
+            textToAdd += "\n";
+            if(type === 'box') { document.getElementById('reward-input').value += textToAdd; } 
+            else if (type === 'wheel') { document.getElementById('wheel-reward-input').value += textToAdd; }
+            alert("Ödül ilgili listeye eklendi!");
+        }
 
         window.renderRewardPool = function() {
             const list = document.getElementById('pool-list-display');
             list.innerHTML = "";
-            if(state.rewardPool.length === 0) { list.innerHTML = '<div class="text-center w-full col-span-3 text-slate-500 text-xs italic py-4">Havuz boş. Yukarıdan ödül ekleyin.</div>'; return; }
+            if(state.rewardPool.length === 0) {
+                list.innerHTML = '<div class="text-center w-full col-span-3 text-slate-500 text-xs italic py-4">Havuz boş. Yukarıdan ödül ekleyin.</div>';
+                return;
+            }
             state.rewardPool.forEach(r => {
                 const hasImg = r.image && r.image.trim() !== "";
-                list.innerHTML += `<div class="pool-item group">${hasImg ? `<img src="${r.image}" class="pool-img" onerror="this.style.display='none'">` : '<div class="pool-img flex items-center justify-center text-slate-600 text-[10px] font-bold">YOK</div>'}<div class="flex-1 overflow-hidden"><div class="text-[11px] font-bold text-white truncate">${r.name}</div><div class="flex gap-1 mt-1 opacity-60 group-hover:opacity-100 transition"><button onclick="appendToConfig('box', ${r.id})" class="text-[9px] bg-sky-900/50 hover:bg-sky-600 px-2 py-0.5 rounded text-sky-200 hover:text-white">Kutuya Ekle</button><button onclick="appendToConfig('wheel', ${r.id})" class="text-[9px] bg-emerald-900/50 hover:bg-emerald-600 px-2 py-0.5 rounded text-emerald-200 hover:text-white">Çarka Ekle</button></div></div><button onclick="removeRewardFromPool(${r.id})" class="text-rose-500 hover:text-rose-300 font-bold px-2">✕</button></div>`;
+                list.innerHTML += `
+                    <div class="pool-item group">
+                        ${hasImg ? `<img src="${r.image}" class="pool-img" onerror="this.style.display='none'">` : '<div class="pool-img flex items-center justify-center text-slate-600 text-[10px] font-bold">YOK</div>'}
+                        <div class="flex-1 overflow-hidden">
+                            <div class="text-[11px] font-bold text-white truncate">${r.name}</div>
+                            <div class="flex gap-1 mt-1 opacity-60 group-hover:opacity-100 transition">
+                                <button onclick="appendToConfig('box', ${r.id})" class="text-[9px] bg-sky-900/50 hover:bg-sky-600 px-2 py-0.5 rounded text-sky-200 hover:text-white">Kutuya Ekle</button>
+                                <button onclick="appendToConfig('wheel', ${r.id})" class="text-[9px] bg-emerald-900/50 hover:bg-emerald-600 px-2 py-0.5 rounded text-emerald-200 hover:text-white">Çarka Ekle</button>
+                            </div>
+                        </div>
+                        <button onclick="removeRewardFromPool(${r.id})" class="text-rose-500 hover:text-rose-300 font-bold px-2">✕</button>
+                    </div>
+                `;
             });
         }
         
@@ -1341,25 +1480,41 @@
             });
             if(tab === 'winners') renderLargeWinnersList();
             if(tab === 'stats') window.renderStatsTable();
-            if(tab === 'pool') window.renderRewardPool();
+            if(tab === 'pool') window.renderRewardPool(); // Ensure render
         }
 
-        // --- RAFFLE & GAME HELPERS ---
+        // --- NEW RAFFLE LOGIC ---
         function openBulkModal() { document.getElementById('bulk-modal').classList.add('active'); document.getElementById('bulk-input').focus(); }
         function closeBulkModal() { document.getElementById('bulk-modal').classList.remove('active'); }
-        function toggleRaffleJoin(e) { state.isRaffleJoinEnabled = e; document.getElementById('raffle-start-btn').classList.toggle('hidden', e); document.getElementById('raffle-stop-btn').classList.toggle('hidden', !e); if(window.updateFirestoreGameState) window.updateFirestoreGameState('raffle', e ? 'open' : 'closed'); }
+        
+        function toggleRaffleJoin(e) { 
+            state.isRaffleJoinEnabled = e; 
+            document.getElementById('raffle-start-btn').classList.toggle('hidden', e); 
+            document.getElementById('raffle-stop-btn').classList.toggle('hidden', !e);
+            if(window.updateFirestoreGameState) window.updateFirestoreGameState('raffle', e ? 'open' : 'closed');
+        }
 
         function processBulkAdd() {
             const raw = document.getElementById('bulk-input').value;
             if(!raw.trim()) return closeBulkModal();
             const names = raw.split('\n').map(n => n.trim()).filter(n => n !== "");
-            names.forEach(name => { state.raffleUsers.push({ id: Date.now() + Math.random(), name: name }); });
+            names.forEach(name => {
+                state.raffleUsers.push({ id: Date.now() + Math.random(), name: name });
+            });
             updateRaffleUserList();
             document.getElementById('bulk-input').value = "";
             closeBulkModal();
         }
 
-        window.updateRaffleUserList = function() { document.getElementById('raffle-user-count').innerText = state.raffleUsers.length; const list = document.getElementById('raffle-user-list'); list.innerHTML = ''; state.raffleUsers.forEach(u => { const isE = state.eliminatedRaffleUsers.includes(u.id); list.innerHTML += `<div class="p-2 bg-slate-800 rounded-lg text-[20px] font-bold transition-opacity duration-1000 ${isE?'opacity-20 user-winner':''}">${u.name}</div>`; }); }
+        window.updateRaffleUserList = function() {
+            document.getElementById('raffle-user-count').innerText = state.raffleUsers.length;
+            const list = document.getElementById('raffle-user-list');
+            list.innerHTML = '';
+            state.raffleUsers.forEach(u => {
+                const isE = state.eliminatedRaffleUsers.includes(u.id);
+                list.innerHTML += `<div class="p-2 bg-slate-800 rounded-lg text-[20px] font-bold transition-opacity duration-1000 ${isE?'opacity-20 user-winner':''}">${u.name}</div>`;
+            });
+        }
 
         function startBulkRaffleLoop() {
             if(state.isRaffleRunning) return;
@@ -1368,95 +1523,557 @@
             const available = state.raffleUsers.filter(u => !state.eliminatedRaffleUsers.includes(u.id));
             if(available.length === 0) return alert("Çekiliş yapacak uygun katılımcı kalmadı!");
             if(available.length < drawCount) return alert(`Yeterli katılımcı yok! (Mevcut: ${available.length}, İstenen: ${drawCount})`);
+
             if(window.batchUpdateParticipation) window.batchUpdateParticipation(available);
+
             state.isRaffleRunning = true;
             document.getElementById('start-raffle-btn').classList.add('opacity-50', 'cursor-not-allowed');
             document.getElementById('raffle-status-msg').classList.remove('opacity-0');
             document.getElementById('raffle-results-grid').innerHTML = '';
+
             let winnersFound = 0;
+
             function pickWinner() {
                 const currentPool = state.raffleUsers.filter(u => !state.eliminatedRaffleUsers.includes(u.id));
-                if(currentPool.length === 0 || winnersFound >= drawCount) { finishRaffle(); return; }
+                if(currentPool.length === 0 || winnersFound >= drawCount) {
+                    finishRaffle();
+                    return;
+                }
+
                 const winner = currentPool[Math.floor(Math.random() * currentPool.length)];
                 state.eliminatedRaffleUsers.push(winner.id);
                 winnersFound++;
                 saveToArchive(winner.name, "ÇEKİLİŞ", `${drawCount} Kişilik`, rewardName, winner.race);
+
                 window.updateRaffleUserList();
+
                 const grid = document.getElementById('raffle-results-grid');
-                const cardHTML = `<div class="raffle-luxury-card"><div class="shimmer-layer"></div><div class="raffle-rank-badge">${winnersFound}</div><div class="raffle-info"><h4>TALİHLİ KAZANAN</h4><div class="winner-name">${winner.name}</div><div class="reward-tag"><span>✦</span> ${rewardName}</div></div></div>`;
+                const cardHTML = `
+                    <div class="raffle-luxury-card">
+                        <div class="shimmer-layer"></div>
+                        <div class="raffle-rank-badge">${winnersFound}</div>
+                        <div class="raffle-info">
+                            <h4>TALİHLİ KAZANAN</h4>
+                            <div class="winner-name">${winner.name}</div>
+                            <div class="reward-tag">
+                                <span>✦</span> ${rewardName}
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
                 grid.insertAdjacentHTML('beforeend', cardHTML);
                 if(winnersFound < drawCount) { setTimeout(pickWinner, 3000); } else { setTimeout(finishRaffle, 1000); }
             }
             pickWinner();
         }
-        function finishRaffle() { state.isRaffleRunning = false; document.getElementById('start-raffle-btn').classList.remove('opacity-50', 'cursor-not-allowed'); document.getElementById('raffle-status-msg').classList.add('opacity-0'); alert("Çekiliş tamamlandı!"); }
 
-        function toggleMirrorJoin(e) { state.isMirrorJoinEnabled = e; document.getElementById('mirror-start-btn').classList.toggle('hidden', e); document.getElementById('mirror-stop-btn').classList.toggle('hidden', !e); if(window.updateFirestoreGameState) window.updateFirestoreGameState('mirror', e ? 'open' : 'closed'); }
+        function finishRaffle() {
+            state.isRaffleRunning = false;
+            document.getElementById('start-raffle-btn').classList.remove('opacity-50', 'cursor-not-allowed');
+            document.getElementById('raffle-status-msg').classList.add('opacity-0');
+            alert("Çekiliş tamamlandı!");
+        }
+
+        // --- MIRROR LOGIC ---
+        function toggleMirrorJoin(e) { 
+            state.isMirrorJoinEnabled = e; 
+            document.getElementById('mirror-start-btn').classList.toggle('hidden', e); 
+            document.getElementById('mirror-stop-btn').classList.toggle('hidden', !e);
+            if(window.updateFirestoreGameState) window.updateFirestoreGameState('mirror', e ? 'open' : 'closed');
+        }
         window.updateMirrorUserList = function(activeId) { document.getElementById('mirror-user-count').innerText = state.mirrorUsers.length; const list = document.getElementById('mirror-user-list'); list.innerHTML = ''; state.mirrorUsers.forEach(u => { const isE = state.eliminatedMirrorUsers.includes(u.id); list.innerHTML += `<div class="p-2 bg-slate-800 rounded-lg text-[20px] font-bold ${isE?'opacity-30 user-winner':''} ${activeId===u.id?'ring-1 ring-purple-400':''}">${u.name}</div>`; }); }
-        function createMirrorGrid() { const grid = document.getElementById('mirror-grid'); grid.innerHTML = ''; let vals = [...Array(3).fill(5), ...Array(5).fill(2), ...Array(7).fill(1)]; state.mirrorValues = vals.sort(() => Math.random() - 0.5); state.mirrorSelectionIndices = []; for(let i=1; i<=state.mirrorCount; i++) { const val = state.mirrorValues[i-1]; grid.innerHTML += `<div class="mirror-wrapper"><div id="mirror-card-${i}" onclick="handleMirrorClick(${i})" class="mirror-card"><div class="mirror-front">${i}</div><div class="mirror-back val-${val}">${val}</div></div></div>`; } }
-        function renderMirrorRewardTable() { const table = document.getElementById('reward-pyramid'); table.innerHTML = ''; const sortedKeys = Object.keys(state.config.mirrorRewardsMap).sort((a,b) => parseInt(b)-parseInt(a)); sortedKeys.forEach(p => { table.innerHTML += `<div id="py-item-${p}" class="pyramid-item"><span>${p} PUAN</span><span>${state.config.mirrorRewardsMap[p]}</span></div>`; }); }
-        async function startMirrorRaffle() { const av = state.mirrorUsers.filter(u => !state.eliminatedMirrorUsers.includes(u.id)); if(av.length === 0) return; resetMirrorRound(); let count = 0; const int = setInterval(() => { const p = av[Math.floor(Math.random()*av.length)]; window.updateMirrorUserList(p.id); if(count++ > 20) { clearInterval(int); state.mirrorWinner = p; document.getElementById('mirror-winner-name').innerText = p.name; document.getElementById('mirror-winner-display').classList.remove('opacity-0'); updateMirrorSelectionDisplay(); } }, 100); }
+        
+        function createMirrorGrid() { 
+            const grid = document.getElementById('mirror-grid'); grid.innerHTML = ''; 
+            let vals = [...Array(3).fill(5), ...Array(5).fill(2), ...Array(7).fill(1)]; 
+            state.mirrorValues = vals.sort(() => Math.random() - 0.5); 
+            state.mirrorSelectionIndices = [];
+            for(let i=1; i<=state.mirrorCount; i++) { 
+                const val = state.mirrorValues[i-1];
+                grid.innerHTML += `<div class="mirror-wrapper"><div id="mirror-card-${i}" onclick="handleMirrorClick(${i})" class="mirror-card"><div class="mirror-front">${i}</div><div class="mirror-back val-${val}">${val}</div></div></div>`; 
+            } 
+        }
+
+        function renderMirrorRewardTable() { 
+            const table = document.getElementById('reward-pyramid'); table.innerHTML = ''; 
+            const sortedKeys = Object.keys(state.config.mirrorRewardsMap).sort((a,b) => parseInt(b)-parseInt(a)); 
+            sortedKeys.forEach(p => {
+                table.innerHTML += `<div id="py-item-${p}" class="pyramid-item"><span>${p} PUAN</span><span>${state.config.mirrorRewardsMap[p]}</span></div>`; 
+            });
+        }
+
+        async function startMirrorRaffle() { 
+            const av = state.mirrorUsers.filter(u => !state.eliminatedMirrorUsers.includes(u.id)); 
+            if(av.length === 0) return; 
+            resetMirrorRound(); 
+            let count = 0; 
+            const int = setInterval(() => { 
+                const p = av[Math.floor(Math.random()*av.length)]; 
+                window.updateMirrorUserList(p.id); 
+                if(count++ > 20) { 
+                    clearInterval(int); 
+                    state.mirrorWinner = p; 
+                    document.getElementById('mirror-winner-name').innerText = p.name; 
+                    document.getElementById('mirror-winner-display').classList.remove('opacity-0'); 
+                    updateMirrorSelectionDisplay(); 
+                } 
+            }, 100); 
+        }
+
         function updateMirrorSelectionDisplay() { document.getElementById('mirror-selection-count').innerText = `HAK: ${3 - state.mirrorSelections} / 3`; }
-        function handleMirrorClick(n) { if(!state.mirrorWinner || state.mirrorSelections >= 3) return; const card = document.getElementById(`mirror-card-${n}`); if(card.classList.contains('flipped')) return; card.classList.add('flipped'); card.querySelector('.mirror-back').classList.add('selected-mirror'); state.mirrorSelections++; state.mirrorSelectionIndices.push(n); state.mirrorCurrentTotal += state.mirrorValues[n-1]; document.getElementById('mirror-total-score').innerText = state.mirrorCurrentTotal; document.getElementById('mirror-total-score-panel').classList.remove('opacity-0'); updateMirrorSelectionDisplay(); if(state.mirrorSelections === 3) finishMirrorRound(); }
-        function finishMirrorRound() { const total = state.mirrorCurrentTotal; const reward = state.config.mirrorRewardsMap[total] || "Ödül Yok"; document.querySelectorAll('.mirror-card').forEach(c => c.classList.add('flipped')); document.querySelectorAll('.pyramid-item').forEach(i => i.classList.remove('highlight')); const highlightEl = document.getElementById(`py-item-${total}`); if(highlightEl) highlightEl.classList.add('highlight'); document.getElementById('mirror-reward-text').innerText = reward; document.getElementById('mirror-result-announcement').classList.remove('opacity-0', 'translate-y-4'); saveToArchive(state.mirrorWinner.name, "AYNA", `${total} Puan`, reward, state.mirrorWinner.race); if(window.batchUpdateParticipation) window.batchUpdateParticipation(state.mirrorUsers); state.eliminatedMirrorUsers.push(state.mirrorWinner.id); window.updateMirrorUserList(); }
-        function resetMirrorRound() { state.mirrorWinner = null; state.mirrorSelections = 0; state.mirrorCurrentTotal = 0; document.getElementById('mirror-winner-display').classList.add('opacity-0'); document.getElementById('mirror-total-score-panel').classList.add('opacity-0'); document.getElementById('mirror-result-announcement').classList.add('opacity-0'); document.getElementById('mirror-total-score').innerText = "0"; document.querySelectorAll('.pyramid-item').forEach(i => i.classList.remove('highlight')); createMirrorGrid(); }
+        
+        function handleMirrorClick(n) { 
+            if(!state.mirrorWinner || state.mirrorSelections >= 3) return; 
+            const card = document.getElementById(`mirror-card-${n}`); 
+            if(card.classList.contains('flipped')) return; 
+            card.classList.add('flipped'); 
+            card.querySelector('.mirror-back').classList.add('selected-mirror');
+            state.mirrorSelections++; 
+            state.mirrorSelectionIndices.push(n);
+            state.mirrorCurrentTotal += state.mirrorValues[n-1]; 
+            document.getElementById('mirror-total-score').innerText = state.mirrorCurrentTotal; 
+            document.getElementById('mirror-total-score-panel').classList.remove('opacity-0'); 
+            updateMirrorSelectionDisplay(); 
+            if(state.mirrorSelections === 3) finishMirrorRound(); 
+        }
 
-        function toggleTicketJoin(e) { state.isTicketJoinEnabled = e; document.getElementById('ticket-start-btn').classList.toggle('hidden', e); document.getElementById('ticket-stop-btn').classList.toggle('hidden', !e); if(window.updateFirestoreGameState) window.updateFirestoreGameState('ticket', e ? 'open' : 'closed'); }
-        window.updateTicketUserList = function() { document.getElementById('ticket-user-count').innerText = state.ticketUsers.length; const list = document.getElementById('ticket-user-list'); list.innerHTML = ''; state.ticketUsers.forEach(u => { list.innerHTML += `<div class="p-2 bg-amber-900/20 border border-amber-500/20 rounded-lg flex justify-between items-center text-[20px] font-bold"><span>${u.name}</span><span class="font-mono text-amber-400 tracking-widest text-[20px]">${u.ticketNumber}</span></div>`; }); }
-        function startTicketDraw() { if (state.ticketUsers.length === 0) return alert("Bilet alan oyuncu yok!"); if(window.batchUpdateParticipation) window.batchUpdateParticipation(state.ticketUsers); const winner = state.ticketUsers[Math.floor(Math.random() * state.ticketUsers.length)]; state.ticketWinner = winner; const winningNumbers = winner.ticketNumber.split(''); document.getElementById('ticket-winner-area').classList.add('opacity-0', 'translate-y-10'); document.getElementById('reveal-winner-btn').classList.add('hidden'); for(let i=1; i<=5; i++) { const ball = document.getElementById(`ticket-ball-${i}`); ball.innerText = "?"; ball.classList.remove('active'); } winningNumbers.forEach((num, index) => { setTimeout(() => { const ball = document.getElementById(`ticket-ball-${index+1}`); ball.innerText = num; ball.classList.add('active'); }, (index + 1) * 1000); }); setTimeout(() => { document.getElementById('reveal-winner-btn').classList.remove('hidden'); }, 6000); }
-        function revealTicketWinner() { if (!state.ticketWinner) return; const wName = state.ticketWinner.name; document.getElementById('ticket-winner-name').innerText = wName; document.getElementById('ticket-winner-area').classList.remove('opacity-0', 'translate-y-10'); document.getElementById('reveal-winner-btn').classList.add('hidden'); fireConfetti(); saveToArchive(wName, "BİLET", `No: ${state.ticketWinner.ticketNumber}`, "Büyük İkramiye", state.ticketWinner.race); }
+        function finishMirrorRound() { 
+            const total = state.mirrorCurrentTotal; 
+            const reward = state.config.mirrorRewardsMap[total] || "Ödül Yok"; 
+            document.querySelectorAll('.mirror-card').forEach(c => c.classList.add('flipped'));
+            document.querySelectorAll('.pyramid-item').forEach(i => i.classList.remove('highlight')); 
+            const highlightEl = document.getElementById(`py-item-${total}`); 
+            if(highlightEl) highlightEl.classList.add('highlight'); 
+            document.getElementById('mirror-reward-text').innerText = reward; 
+            document.getElementById('mirror-result-announcement').classList.remove('opacity-0', 'translate-y-4'); 
+            saveToArchive(state.mirrorWinner.name, "AYNA", `${total} Puan`, reward, state.mirrorWinner.race); 
+            
+            if(window.batchUpdateParticipation) window.batchUpdateParticipation(state.mirrorUsers);
 
-        function toggleJoin(e) { state.isJoinEnabled = e; document.getElementById('start-btn').classList.toggle('hidden', e); document.getElementById('stop-btn').classList.toggle('hidden', !e); if(window.updateFirestoreGameState) window.updateFirestoreGameState('game', e ? 'open' : 'closed'); }
-        window.updateUserList = function(a) { document.getElementById('user-count').innerText = state.users.length; const list = document.getElementById('user-list'); list.innerHTML = ''; state.users.forEach(u => { const isE = state.eliminatedUsers.includes(u.id); list.innerHTML += `<div class="p-2 bg-slate-800 rounded-lg text-[20px] font-bold ${isE?'opacity-30 user-winner':''} ${a===u.id?'ring-1 ring-sky-400':''}">${u.name}</div>`; }); }
+            state.eliminatedMirrorUsers.push(state.mirrorWinner.id); 
+            window.updateMirrorUserList(); 
+        }
+
+        function resetMirrorRound() { 
+            state.mirrorWinner = null; state.mirrorSelections = 0; state.mirrorCurrentTotal = 0; 
+            document.getElementById('mirror-winner-display').classList.add('opacity-0'); 
+            document.getElementById('mirror-total-score-panel').classList.add('opacity-0'); 
+            document.getElementById('mirror-result-announcement').classList.add('opacity-0'); 
+            document.getElementById('mirror-total-score').innerText = "0"; 
+            document.querySelectorAll('.pyramid-item').forEach(i => i.classList.remove('highlight')); 
+            createMirrorGrid(); 
+        }
+
+        // --- TICKET GAME LOGIC ---
+        function toggleTicketJoin(e) {
+            state.isTicketJoinEnabled = e;
+            document.getElementById('ticket-start-btn').classList.toggle('hidden', e);
+            document.getElementById('ticket-stop-btn').classList.toggle('hidden', !e);
+            if(window.updateFirestoreGameState) window.updateFirestoreGameState('ticket', e ? 'open' : 'closed');
+        }
+
+        window.updateTicketUserList = function() {
+            document.getElementById('ticket-user-count').innerText = state.ticketUsers.length;
+            const list = document.getElementById('ticket-user-list');
+            list.innerHTML = '';
+            state.ticketUsers.forEach(u => {
+                list.innerHTML += `<div class="p-2 bg-amber-900/20 border border-amber-500/20 rounded-lg flex justify-between items-center text-[20px] font-bold"><span>${u.name}</span><span class="font-mono text-amber-400 tracking-widest text-[20px]">${u.ticketNumber}</span></div>`;
+            });
+        }
+
+        function startTicketDraw() {
+            if (state.ticketUsers.length === 0) return alert("Bilet alan oyuncu yok!");
+            if(window.batchUpdateParticipation) window.batchUpdateParticipation(state.ticketUsers);
+
+            const winner = state.ticketUsers[Math.floor(Math.random() * state.ticketUsers.length)];
+            state.ticketWinner = winner;
+            const winningNumbers = winner.ticketNumber.split('');
+
+            document.getElementById('ticket-winner-area').classList.add('opacity-0', 'translate-y-10');
+            document.getElementById('reveal-winner-btn').classList.add('hidden');
+            for(let i=1; i<=5; i++) {
+                const ball = document.getElementById(`ticket-ball-${i}`);
+                ball.innerText = "?";
+                ball.classList.remove('active');
+            }
+            winningNumbers.forEach((num, index) => {
+                setTimeout(() => {
+                    const ball = document.getElementById(`ticket-ball-${index+1}`);
+                    ball.innerText = num;
+                    ball.classList.add('active');
+                }, (index + 1) * 1000);
+            });
+            setTimeout(() => { document.getElementById('reveal-winner-btn').classList.remove('hidden'); }, 6000);
+        }
+
+        function revealTicketWinner() {
+            if (!state.ticketWinner) return;
+            const wName = state.ticketWinner.name;
+            document.getElementById('ticket-winner-name').innerText = wName;
+            document.getElementById('ticket-winner-area').classList.remove('opacity-0', 'translate-y-10');
+            document.getElementById('reveal-winner-btn').classList.add('hidden');
+            fireConfetti();
+            saveToArchive(wName, "BİLET", `No: ${state.ticketWinner.ticketNumber}`, "Büyük İkramiye", state.ticketWinner.race);
+        }
+
+        // --- BOX LOGIC ---
+        function toggleJoin(e) { 
+            state.isJoinEnabled = e; 
+            document.getElementById('start-btn').classList.toggle('hidden', e); 
+            document.getElementById('stop-btn').classList.toggle('hidden', !e);
+            if(window.updateFirestoreGameState) window.updateFirestoreGameState('game', e ? 'open' : 'closed');
+        }
+        window.updateUserList = function(a) { 
+            document.getElementById('user-count').innerText = state.users.length; 
+            const list = document.getElementById('user-list'); 
+            list.innerHTML = ''; 
+            state.users.forEach(u => { 
+                const isE = state.eliminatedUsers.includes(u.id); 
+                list.innerHTML += `<div class="p-2 bg-slate-800 rounded-lg text-[20px] font-bold ${isE?'opacity-30 user-winner':''} ${a===u.id?'ring-1 ring-sky-400':''}">${u.name}</div>`; 
+            }); 
+        }
+        
         function shuffleRewards() { state.boxRewards = [...state.config.rewards].sort(() => Math.random() - 0.5); }
         function createBoxes(c) { const g = document.getElementById('box-grid'); g.innerHTML = ''; g.className = "grid grid-cols-2 md:grid-cols-5 gap-2"; for(let i=1;i<=c;i++) { g.innerHTML += `<div id="box-${i}" onclick="handleBoxClick(${i})" class="box-item"><div class="box-inner"><div class="box-front"><div class="box-number-badge">${i}</div><span class="box-icon">🎁</span></div><div class="box-back"><div id="reward-text-${i}" class="text-[10px] text-center p-1 font-bold text-sky-400"></div></div></div></div>`; } }
-        function handleBoxClick(n) { if(!state.currentWinner || state.isBoxOpened) return; const rawReward = state.boxRewards[n-1] || "Pas"; let rewardText = rawReward; let rewardImg = null; if (rawReward.includes('|')) { const parts = rawReward.split('|'); rewardText = parts[0].trim(); rewardImg = parts[1].trim(); } state.isBoxOpened = true; state.eliminatedUsers.push(state.currentWinner.id); document.getElementById(`box-${n}`).classList.add('opened'); const contentHTML = rewardImg ? `<div class="flex flex-col items-center justify-center w-full h-full"><img src="${rewardImg}" class="w-12 h-12 object-contain mb-1 shadow-lg rounded-md"><span class="text-[10px] leading-tight text-white">${rewardText}</span></div>` : rewardText; document.getElementById(`reward-text-${n}`).innerHTML = contentHTML; document.getElementById('post-box-controls').classList.remove('opacity-0', 'pointer-events-none'); if(window.batchUpdateParticipation) window.batchUpdateParticipation(state.users); saveToArchive(state.currentWinner.name, "KUTU", `#${n}`, rewardText, state.currentWinner.race); }
+        
+        function handleBoxClick(n) { 
+            if(!state.currentWinner || state.isBoxOpened) return; 
+            const rawReward = state.boxRewards[n-1] || "Pas"; 
+            let rewardText = rawReward;
+            let rewardImg = null;
+            if (rawReward.includes('|')) {
+                const parts = rawReward.split('|');
+                rewardText = parts[0].trim();
+                rewardImg = parts[1].trim();
+            }
+            state.isBoxOpened = true; 
+            state.eliminatedUsers.push(state.currentWinner.id); 
+            document.getElementById(`box-${n}`).classList.add('opened'); 
+            const contentHTML = rewardImg ? `<div class="flex flex-col items-center justify-center w-full h-full"><img src="${rewardImg}" class="w-12 h-12 object-contain mb-1 shadow-lg rounded-md"><span class="text-[10px] leading-tight text-white">${rewardText}</span></div>` : rewardText;
+            document.getElementById(`reward-text-${n}`).innerHTML = contentHTML; 
+            document.getElementById('post-box-controls').classList.remove('opacity-0', 'pointer-events-none'); 
+            
+            if(window.batchUpdateParticipation) window.batchUpdateParticipation(state.users);
+            
+            saveToArchive(state.currentWinner.name, "KUTU", `#${n}`, rewardText, state.currentWinner.race); 
+        }
+
         function nextRound() { state.currentWinner = null; state.isBoxOpened = false; document.getElementById('winner-banner').classList.add('opacity-0'); document.getElementById('post-box-controls').classList.add('opacity-0', 'pointer-events-none'); window.updateUserList(); }
         async function startRaffle() { const av = state.users.filter(u => !state.eliminatedUsers.includes(u.id)); if(av.length===0) return; let count = 0; const int = setInterval(() => { const p = av[Math.floor(Math.random()*av.length)]; window.updateUserList(p.id); if(count++ > 20) { clearInterval(int); state.currentWinner = p; document.getElementById('winner-name').innerText = p.name; document.getElementById('winner-banner').classList.remove('opacity-0'); } }, 100); }
 
-        function toggleWheelJoin(e) { state.isWheelJoinEnabled = e; document.getElementById('wheel-start-btn').classList.toggle('hidden', e); document.getElementById('wheel-stop-btn').classList.toggle('hidden', !e); if(window.updateFirestoreGameState) window.updateFirestoreGameState('wheel', e ? 'open' : 'closed'); }
+        // --- WHEEL LOGIC ---
+        function toggleWheelJoin(e) { 
+            state.isWheelJoinEnabled = e; 
+            document.getElementById('wheel-start-btn').classList.toggle('hidden', e); 
+            document.getElementById('wheel-stop-btn').classList.toggle('hidden', !e);
+            if(window.updateFirestoreGameState) window.updateFirestoreGameState('wheel', e ? 'open' : 'closed');
+        }
         window.updateWheelUserList = function(activeId) { document.getElementById('wheel-user-count').innerText = state.wheelUsers.length; const list = document.getElementById('wheel-user-list'); list.innerHTML = ''; state.wheelUsers.forEach(u => { const isE = state.eliminatedWheelUsers.includes(u.id); list.innerHTML += `<div class="p-2 bg-slate-800 rounded-lg text-[20px] font-bold ${isE?'opacity-30 user-winner':''} ${activeId===u.id?'ring-1 ring-emerald-400':''}">${u.name}</div>`; }); }
+        
         async function startWheelRaffle() { const av = state.wheelUsers.filter(u => !state.eliminatedWheelUsers.includes(u.id)); if(av.length === 0) return; let count = 0; const int = setInterval(() => { const p = av[Math.floor(Math.random()*av.length)]; window.updateWheelUserList(p.id); if(count++ > 20) { clearInterval(int); state.wheelWinner = p; document.getElementById('wheel-winner-name').innerText = p.name; document.getElementById('wheel-winner-reward').classList.add('opacity-0'); document.getElementById('wheel-winner-banner').classList.remove('opacity-0'); } }, 100); }
-        function drawWheel() { const canvas = document.getElementById('wheel-canvas'); if(!canvas) return; const ctx = canvas.getContext('2d'); const rw = state.config.wheelRewards; const center = canvas.width / 2; const radius = center - 15; ctx.clearRect(0,0,canvas.width,canvas.height); if(rw.length===0) return; const slice = (Math.PI*2)/rw.length; rw.forEach((r, i) => { ctx.save(); ctx.translate(center,center); ctx.rotate(state.wheelAngle + i*slice); ctx.beginPath(); ctx.moveTo(0,0); ctx.arc(0,0,radius,0,slice); ctx.fillStyle = state.colors[i % state.colors.length]; ctx.fill(); ctx.strokeStyle = "rgba(255,255,255,0.2)"; ctx.lineWidth = 1; ctx.stroke(); ctx.rotate(slice/2); ctx.fillStyle="white"; ctx.textAlign = "right"; ctx.font="bold 14px Rajdhani"; let displayText = r; if(r.includes('|')) { displayText = r.split('|')[0].trim(); } ctx.fillText(displayText.substring(0,15), radius - 30, 5); ctx.restore(); }); ctx.beginPath(); ctx.arc(center,center,20,0,Math.PI*2); ctx.fillStyle="#fff"; ctx.fill(); }
+        function drawWheel() { 
+            const canvas = document.getElementById('wheel-canvas'); 
+            if(!canvas) return; 
+            const ctx = canvas.getContext('2d'); 
+            const rw = state.config.wheelRewards; 
+            const center = canvas.width / 2; 
+            const radius = center - 15; 
+            ctx.clearRect(0,0,canvas.width,canvas.height); 
+            if(rw.length===0) return; 
+            const slice = (Math.PI*2)/rw.length; 
+            rw.forEach((r, i) => { 
+                ctx.save(); 
+                ctx.translate(center,center); 
+                ctx.rotate(state.wheelAngle + i*slice); 
+                ctx.beginPath(); 
+                ctx.moveTo(0,0); 
+                ctx.arc(0,0,radius,0,slice); 
+                ctx.fillStyle = state.colors[i % state.colors.length]; 
+                ctx.fill(); 
+                ctx.strokeStyle = "rgba(255,255,255,0.2)"; 
+                ctx.lineWidth = 1; 
+                ctx.stroke(); 
+                ctx.rotate(slice/2); 
+                ctx.fillStyle="white"; 
+                ctx.textAlign = "right"; 
+                ctx.font="bold 14px Rajdhani"; 
+                
+                let displayText = r;
+                if(r.includes('|')) {
+                    displayText = r.split('|')[0].trim();
+                }
+                ctx.fillText(displayText.substring(0,15), radius - 30, 5); 
+                
+                ctx.restore(); 
+            }); 
+            ctx.beginPath(); 
+            ctx.arc(center,center,20,0,Math.PI*2); 
+            ctx.fillStyle="#fff"; 
+            ctx.fill(); 
+        }
+        
         function spinWheel() { 
-            if(state.isWheelSpinning || !state.wheelWinner) return; if(state.config.wheelRewards.length === 0) return alert("Çarkta dağıtılacak ödül kalmadı!");
+            if(state.isWheelSpinning || !state.wheelWinner) return; 
+            if(state.config.wheelRewards.length === 0) return alert("Çarkta dağıtılacak ödül kalmadı!");
+
             if(window.batchUpdateParticipation) window.batchUpdateParticipation(state.wheelUsers);
-            state.isWheelSpinning = true; const spinRounds = 10 + Math.random() * 5; const targetAngle = state.wheelAngle + (Math.PI * 2 * spinRounds); const startAngle = state.wheelAngle; const duration = 6000; const startTime = performance.now(); 
-            const anim = (now) => { const elapsed = now - startTime; const t = Math.min(elapsed / duration, 1); const easeOut = 1 - Math.pow(1 - t, 4); state.wheelAngle = startAngle + (targetAngle - startAngle) * easeOut; drawWheel(); 
-                if(t < 1) requestAnimationFrame(anim); else { state.isWheelSpinning = false; const rw = state.config.wheelRewards; const slice = (Math.PI*2)/rw.length; const offset = (Math.PI * 1.5); const normalized = (offset - state.wheelAngle) % (Math.PI * 2); const finalNorm = normalized < 0 ? normalized + (Math.PI * 2) : normalized; const index = Math.floor(finalNorm / slice); const result = rw[index]; let rewardText = result; let rewardImg = null; if (result.includes('|')) { const parts = result.split('|'); rewardText = parts[0].trim(); rewardImg = parts[1].trim(); } const rewardEl = document.getElementById('wheel-winner-reward'); if (rewardImg) { rewardEl.innerHTML = `<div class="flex flex-col items-center animate-bounce"><span class="text-[10px] text-slate-400 mb-1">KAZANILAN ÖDÜL</span><img src="${rewardImg}" class="w-32 h-32 object-contain mb-2 rounded-xl shadow-[0_0_20px_rgba(250,204,21,0.3)] bg-slate-900/50 border border-yellow-500/30"><span class="text-3xl text-yellow-400 drop-shadow-md">${rewardText}</span></div>`; } else { rewardEl.innerHTML = `<div class="flex flex-col items-center"><span class="text-[10px] text-slate-400 mb-1">KAZANILAN ÖDÜL</span><span class="text-3xl text-yellow-400 drop-shadow-md">${rewardText}</span></div>`; } rewardEl.classList.remove('opacity-0', 'translate-y-2'); saveToArchive(state.wheelWinner.name, "ÇARK", "Ödül", rewardText, state.wheelWinner.race); state.eliminatedWheelUsers.push(state.wheelWinner.id); setTimeout(() => { state.config.wheelRewards.splice(index, 1); drawWheel(); state.wheelWinner = null; document.getElementById('wheel-winner-banner').classList.add('opacity-0'); window.updateWheelUserList(); }, 6000); } 
-            }; requestAnimationFrame(anim); 
+
+            state.isWheelSpinning = true; 
+            const spinRounds = 10 + Math.random() * 5; 
+            const targetAngle = state.wheelAngle + (Math.PI * 2 * spinRounds); 
+            const startAngle = state.wheelAngle; 
+            const duration = 6000; 
+            const startTime = performance.now(); 
+            
+            const anim = (now) => { 
+                const elapsed = now - startTime; 
+                const t = Math.min(elapsed / duration, 1); 
+                const easeOut = 1 - Math.pow(1 - t, 4); 
+                state.wheelAngle = startAngle + (targetAngle - startAngle) * easeOut; 
+                drawWheel(); 
+                
+                if(t < 1) requestAnimationFrame(anim); 
+                else { 
+                    state.isWheelSpinning = false; 
+                    const rw = state.config.wheelRewards; 
+                    const slice = (Math.PI*2)/rw.length; 
+                    const offset = (Math.PI * 1.5); 
+                    const normalized = (offset - state.wheelAngle) % (Math.PI * 2); 
+                    const finalNorm = normalized < 0 ? normalized + (Math.PI * 2) : normalized; 
+                    const index = Math.floor(finalNorm / slice); 
+                    const result = rw[index]; 
+                    
+                    let rewardText = result;
+                    let rewardImg = null;
+                    if (result.includes('|')) {
+                        const parts = result.split('|');
+                        rewardText = parts[0].trim();
+                        rewardImg = parts[1].trim();
+                    }
+                    
+                    const rewardEl = document.getElementById('wheel-winner-reward'); 
+                    
+                    if (rewardImg) {
+                        rewardEl.innerHTML = `
+                            <div class="flex flex-col items-center animate-bounce">
+                                <span class="text-[10px] text-slate-400 mb-1">KAZANILAN ÖDÜL</span>
+                                <img src="${rewardImg}" class="w-32 h-32 object-contain mb-2 rounded-xl shadow-[0_0_20px_rgba(250,204,21,0.3)] bg-slate-900/50 border border-yellow-500/30">
+                                <span class="text-3xl text-yellow-400 drop-shadow-md">${rewardText}</span>
+                            </div>
+                        `;
+                    } else {
+                        rewardEl.innerHTML = `
+                             <div class="flex flex-col items-center">
+                                <span class="text-[10px] text-slate-400 mb-1">KAZANILAN ÖDÜL</span>
+                                <span class="text-3xl text-yellow-400 drop-shadow-md">${rewardText}</span>
+                            </div>
+                        `;
+                    }
+                    
+                    rewardEl.classList.remove('opacity-0', 'translate-y-2'); 
+                    
+                    saveToArchive(state.wheelWinner.name, "ÇARK", "Ödül", rewardText, state.wheelWinner.race); 
+                    state.eliminatedWheelUsers.push(state.wheelWinner.id); 
+                    
+                    setTimeout(() => {
+                        state.config.wheelRewards.splice(index, 1);
+                        drawWheel(); 
+                        state.wheelWinner = null; 
+                        document.getElementById('wheel-winner-banner').classList.add('opacity-0'); 
+                        window.updateWheelUserList(); 
+                    }, 6000); 
+                } 
+            }; 
+            requestAnimationFrame(anim); 
         }
 
-        function toggleLuckyJoin(e) { state.isLuckyJoinEnabled = e; document.getElementById('lucky-start-btn').classList.toggle('hidden', e); document.getElementById('lucky-stop-btn').classList.toggle('hidden', !e); if(window.updateFirestoreGameState) window.updateFirestoreGameState('lucky', e ? 'open' : 'closed'); }
+        // --- LUCKY BALLS LOGIC ---
+        function toggleLuckyJoin(e) { 
+            state.isLuckyJoinEnabled = e; 
+            document.getElementById('lucky-start-btn').classList.toggle('hidden', e); 
+            document.getElementById('lucky-stop-btn').classList.toggle('hidden', !e);
+            if(window.updateFirestoreGameState) window.updateFirestoreGameState('lucky', e ? 'open' : 'closed');
+        }
         window.updateLuckyUserList = function() { document.getElementById('lucky-user-count').innerText = state.luckyUsers.length; const list = document.getElementById('lucky-user-list'); list.innerHTML = ''; state.luckyUsers.forEach(u => { const isW = state.luckyWinnersIds.includes(u.id); list.innerHTML += `<div class="p-2 bg-yellow-900/10 border border-yellow-500/10 rounded-lg flex justify-between items-center text-[20px] font-bold ${isW?'user-winner ring-1 ring-yellow-400':''}"><span>${u.name}</span><span class="text-yellow-500 font-mono tracking-widest">${u.numbers.join('-')}</span></div>`; }); }
+        
         function rollLuckyBalls() { if(state.isLuckyRolling || state.luckyUsers.length === 0) return; state.isLuckyRolling = true; document.getElementById('lucky-result-panel').classList.add('opacity-0', 'translate-y-4'); const balls = [document.getElementById('ball-1'), document.getElementById('ball-2'), document.getElementById('ball-3')]; const res = [Math.floor(Math.random()*9)+1, Math.floor(Math.random()*9)+1, Math.floor(Math.random()*9)+1]; balls.forEach(b => b.classList.add('ball-spinning')); let fin = 0; balls.forEach((b, i) => { let cyc = 0; const max = 20 + (i * 15); const int = setInterval(() => { b.innerText = Math.floor(Math.random()*9)+1; if(cyc++ >= max) { clearInterval(int); b.innerText = res[i]; b.classList.remove('ball-spinning'); fin++; if(fin === balls.length) { state.luckyResult = res; processLuckyWinners(); } } }, 60); }); }
+
         function processLuckyWinners() { 
-            state.isLuckyRolling = false; const [r1, r2, r3] = state.luckyResult;
+            state.isLuckyRolling = false; 
+            const [r1, r2, r3] = state.luckyResult;
+            
             if(window.batchUpdateParticipation) window.batchUpdateParticipation(state.luckyUsers);
+
             const winners3 = state.luckyUsers.filter(u => u.numbers[0] === r1 && u.numbers[1] === r2 && u.numbers[2] === r3);
             const winners2 = state.luckyUsers.filter(u => u.numbers[0] === r1 && u.numbers[1] === r2 && u.numbers[2] !== r3);
             const winners1 = state.luckyUsers.filter(u => u.numbers[0] === r1 && u.numbers[1] !== r2);
-            let winningGroup = []; let perPersonReward = 0; let groupLabel = "";
-            if (winners3.length > 0) { winningGroup = winners3; perPersonReward = Math.floor(state.config.luckyJackpot / winners3.length); groupLabel = "3 BİLEN"; } else if (winners2.length > 0) { winningGroup = winners2; perPersonReward = Math.floor((state.config.luckyJackpot * 0.5) / winners2.length); groupLabel = "2 BİLEN"; } else if (winners1.length > 0) { winningGroup = winners1; perPersonReward = Math.floor((state.config.luckyJackpot * 0.25) / winners1.length); groupLabel = "1 BİLEN"; }
-            const d = document.getElementById('lucky-winners-display'); d.innerHTML = ''; 
-            if(winningGroup.length > 0) { state.luckyWinnersIds.push(...winningGroup.map(u => u.id)); winningGroup.forEach(w => { d.innerHTML += `<div class="flex justify-between items-center p-3 bg-emerald-500/20 border border-emerald-500/40 rounded-xl"><span class="font-black text-white">${w.name}</span><div class="text-right"><div class="text-[9px] text-slate-400 uppercase font-bold">${groupLabel}</div><div class="text-emerald-400 font-bold">${perPersonReward.toLocaleString()} ALTIN</div></div></div>`; saveToArchive(w.name, "ŞANS TOPU", groupLabel, `${perPersonReward} Altın`, w.race); }); document.getElementById('lucky-final-announcement').innerText = "KAZANANLAR VAR!"; } else { d.innerHTML = `<div class="text-center p-8 text-slate-500 font-bold italic uppercase tracking-widest">BU TURDA KAZANAN OLMADI</div>`; document.getElementById('lucky-final-announcement').innerText = "KİMSE BİLEMEDİ..."; } window.updateLuckyUserList(); document.getElementById('lucky-result-panel').classList.remove('opacity-0', 'translate-y-4');
+
+            let winningGroup = [];
+            let perPersonReward = 0;
+            let groupLabel = "";
+
+            if (winners3.length > 0) {
+                winningGroup = winners3;
+                perPersonReward = Math.floor(state.config.luckyJackpot / winners3.length);
+                groupLabel = "3 BİLEN";
+            } else if (winners2.length > 0) {
+                winningGroup = winners2;
+                perPersonReward = Math.floor((state.config.luckyJackpot * 0.5) / winners2.length);
+                groupLabel = "2 BİLEN";
+            } else if (winners1.length > 0) {
+                winningGroup = winners1;
+                perPersonReward = Math.floor((state.config.luckyJackpot * 0.25) / winners1.length);
+                groupLabel = "1 BİLEN";
+            }
+
+            const d = document.getElementById('lucky-winners-display'); 
+            d.innerHTML = ''; 
+
+            if(winningGroup.length > 0) {
+                state.luckyWinnersIds.push(...winningGroup.map(u => u.id));
+                winningGroup.forEach(w => {
+                    d.innerHTML += `<div class="flex justify-between items-center p-3 bg-emerald-500/20 border border-emerald-500/40 rounded-xl">
+                        <span class="font-black text-white">${w.name}</span>
+                        <div class="text-right">
+                            <div class="text-[9px] text-slate-400 uppercase font-bold">${groupLabel}</div>
+                            <div class="text-emerald-400 font-bold">${perPersonReward.toLocaleString()} ALTIN</div>
+                        </div>
+                    </div>`;
+                    saveToArchive(w.name, "ŞANS TOPU", groupLabel, `${perPersonReward} Altın`, w.race);
+                });
+                document.getElementById('lucky-final-announcement').innerText = "KAZANANLAR VAR!";
+            } else {
+                d.innerHTML = `<div class="text-center p-8 text-slate-500 font-bold italic uppercase tracking-widest">BU TURDA KAZANAN OLMADI</div>`;
+                document.getElementById('lucky-final-announcement').innerText = "KİMSE BİLEMEDİ...";
+            }
+            window.updateLuckyUserList();
+            document.getElementById('lucky-result-panel').classList.remove('opacity-0', 'translate-y-4');
         }
 
-        function toggleDiceJoin(e) { state.isDiceJoinEnabled = e; document.getElementById('dice-start-btn').classList.toggle('hidden', e); document.getElementById('dice-stop-btn').classList.toggle('hidden', !e); if(window.updateFirestoreGameState) window.updateFirestoreGameState('dice', e ? 'open' : 'closed'); }
+        // --- DICE LOGIC ---
+        function toggleDiceJoin(e) { 
+            state.isDiceJoinEnabled = e; 
+            document.getElementById('dice-start-btn').classList.toggle('hidden', e); 
+            document.getElementById('dice-stop-btn').classList.toggle('hidden', !e);
+            if(window.updateFirestoreGameState) window.updateFirestoreGameState('dice', e ? 'open' : 'closed');
+        }
         window.updateDiceUserList = function() { document.getElementById('dice-user-count').innerText = state.diceUsers.length; const list = document.getElementById('dice-user-list'); list.innerHTML = ''; state.diceUsers.forEach(u => { const isW = state.diceWinnersIds.includes(u.id); list.innerHTML += `<div class="p-2 bg-indigo-900/10 border border-indigo-500/10 rounded-lg flex justify-between items-center text-[20px] font-bold ${isW?'user-winner ring-1 ring-indigo-400':''}"><span>${u.name}</span><span class="text-indigo-400 font-mono tracking-widest">/zar ${u.target}</span></div>`; }); }
+        
         function renderDiceDots(el, num) { if(!el) return; el.innerHTML = ''; const p = { 1:[4], 2:[0,8], 3:[0,4,8], 4:[0,2,6,8], 5:[0,2,4,6,8], 6:[0,2,3,5,6,8] }; const dots = p[num] || []; for(let i=0; i<9; i++) { const d = document.createElement('div'); if(dots.includes(i)) d.className = 'dice-dot'; el.appendChild(d); } }
         function rollDice() { if(state.isDiceRolling || state.diceUsers.length === 0) return; state.isDiceRolling = true; document.getElementById('dice-result-panel').classList.add('opacity-0', 'translate-y-4'); const res = [1,2,3,4,5].map(() => Math.floor(Math.random()*6)+1); const sum = res.reduce((a,b)=>a+b, 0); const diceEls = [1,2,3,4,5].map(i => document.getElementById(`dice-${i}`)); diceEls.forEach(d => d.classList.add('dice-rolling')); let fin = 0; diceEls.forEach((d, i) => { let cyc = 0; const max = 15 + (i * 8); const int = setInterval(() => { renderDiceDots(d, Math.floor(Math.random()*6)+1); if(cyc++ >= max) { clearInterval(int); renderDiceDots(d, res[i]); d.classList.remove('dice-rolling'); fin++; if(fin === 5) { state.diceSum = sum; processDiceWinners(); } } }, 80); }); }
+
         function processDiceWinners() { 
-            state.isDiceRolling = false; document.getElementById('dice-sum').innerText = state.diceSum; document.getElementById('dice-total-display').classList.remove('opacity-0'); if(window.batchUpdateParticipation) window.batchUpdateParticipation(state.diceUsers); const winners = state.diceUsers.filter(u => u.target === state.diceSum); const d = document.getElementById('dice-winners-display'); d.innerHTML = ''; 
-            if(winners.length > 0) { const perPersonReward = Math.floor(state.config.diceJackpot / winners.length); state.diceWinnersIds.push(...winners.map(u => u.id)); winners.forEach(w => { d.innerHTML += `<div class="flex justify-between items-center p-3 bg-indigo-500/20 border border-indigo-500/40 rounded-xl"><span class="font-black text-white">${w.name}</span><div class="text-right"><div class="text-[9px] text-slate-400 uppercase font-bold">TAM İSABET</div><div class="text-indigo-400 font-bold">${perPersonReward.toLocaleString()} ALTIN</div></div></div>`; saveToArchive(w.name, "ZAR", `Tahmin: ${state.diceSum}`, `${perPersonReward} Altın`, w.race); }); document.getElementById('dice-final-announcement').innerText = "ÖDÜLLER DAĞITILDI!"; } else { d.innerHTML = `<div class="text-center p-8 text-slate-500 font-bold italic uppercase tracking-widest">KİMSE BİLEMEDİ</div>`; document.getElementById('dice-final-announcement').innerText = "KİMSE BİLEMEDİ..."; } window.updateDiceUserList(); document.getElementById('dice-result-panel').classList.remove('opacity-0', 'translate-y-4');
+            state.isDiceRolling = false; 
+            document.getElementById('dice-sum').innerText = state.diceSum; 
+            document.getElementById('dice-total-display').classList.remove('opacity-0'); 
+            
+            if(window.batchUpdateParticipation) window.batchUpdateParticipation(state.diceUsers);
+
+            const winners = state.diceUsers.filter(u => u.target === state.diceSum); 
+            const d = document.getElementById('dice-winners-display'); 
+            d.innerHTML = ''; 
+
+            if(winners.length > 0) {
+                const perPersonReward = Math.floor(state.config.diceJackpot / winners.length);
+                state.diceWinnersIds.push(...winners.map(u => u.id));
+                winners.forEach(w => {
+                    d.innerHTML += `<div class="flex justify-between items-center p-3 bg-indigo-500/20 border border-indigo-500/40 rounded-xl">
+                        <span class="font-black text-white">${w.name}</span>
+                        <div class="text-right">
+                            <div class="text-[9px] text-slate-400 uppercase font-bold">TAM İSABET</div>
+                            <div class="text-indigo-400 font-bold">${perPersonReward.toLocaleString()} ALTIN</div>
+                        </div>
+                    </div>`;
+                    saveToArchive(w.name, "ZAR", `Tahmin: ${state.diceSum}`, `${perPersonReward} Altın`, w.race);
+                });
+                document.getElementById('dice-final-announcement').innerText = "ÖDÜLLER DAĞITILDI!";
+            } else {
+                d.innerHTML = `<div class="text-center p-8 text-slate-500 font-bold italic uppercase tracking-widest">KİMSE BİLEMEDİ</div>`;
+                document.getElementById('dice-final-announcement').innerText = "KİMSE BİLEMEDİ...";
+            }
+            window.updateDiceUserList();
+            document.getElementById('dice-result-panel').classList.remove('opacity-0', 'translate-y-4');
         }
 
-        function saveToArchive(n, t, d, r, race) { state.winners.push({ name: n, type: t, detail: d, reward: r, time: new Date().toLocaleTimeString() }); if(window.updateStatInFirestore) { window.updateStatInFirestore(n, true, { game: t, detail: d, reward: r }, race); } }
+        // --- UTILS ---
+        function saveToArchive(n, t, d, r, race) { 
+            state.winners.push({ name: n, type: t, detail: d, reward: r, time: new Date().toLocaleTimeString() }); 
+            
+            if(window.updateStatInFirestore) {
+                window.updateStatInFirestore(n, true, { game: t, detail: d, reward: r }, race);
+            }
+        }
         function updateMarquee() { const marquee = document.getElementById('marquee'); if (state.winners.length > 0) { const latest = state.winners.slice(-8); marquee.innerHTML = latest.map(w => `<span class="flex items-center gap-2"><b class="text-white">${w.name}</b> <span class="text-sky-400 font-bold italic">${w.type}</span> <b class="text-yellow-400 uppercase">${w.reward}</b> <span class="text-white/20">|</span></span>`).join(''); } }
         function renderLargeWinnersList() { const l = document.getElementById('winners-log-large'); l.innerHTML = ''; [...state.winners].reverse().forEach(w => { l.innerHTML += `<div class="p-3 bg-white/5 rounded-lg text-xs grid grid-cols-4"><span>${w.time}</span><span class="text-sky-400 font-bold">${w.type}</span><span>${w.name}</span><span class="text-yellow-500 font-bold">${w.reward}</span></div>`; }); }
-        function exportWinners() { if (state.winners.length === 0) return alert("Dışa aktarılacak veri yok!"); const grouped = {}; state.winners.forEach(w => { const reward = w.reward || "Bilinmeyen Ödül"; if (!grouped[reward]) grouped[reward] = []; grouped[reward].push(w.name); }); let textContent = "DWAR ETKİNLİK MERKEZİ - KAZANANLAR LİSTESİ\n"; textContent += "Tarih: " + new Date().toLocaleString() + "\n"; textContent += "==========================================\n\n"; for (const [reward, names] of Object.entries(grouped)) { textContent += `>>> ÖDÜL: ${reward} <<<\n`; textContent += `------------------------------------------\n`; names.forEach((name, index) => { textContent += `${index + 1}. ${name}\n`; }); textContent += `\n`; } const blob = new Blob([textContent], { type: 'text/plain;charset=utf-8;' }); const url = URL.createObjectURL(blob); const link = document.createElement("a"); link.setAttribute("href", url); link.setAttribute("download", "kazananlar_gruplandirilmis.txt"); document.body.appendChild(link); link.click(); document.body.removeChild(link); }
-        function confirmReset() { if(confirm("DİKKAT: Bu işlem tüm katılımcı listelerini veritabanından silecek ve ekranı temizleyecektir. Oturum kapanmayacaktır. Devam edilsin mi?")) { window.fullSystemReset(); } }
-        function fireConfetti() { const canvas = document.getElementById("confetti-canvas"); const ctx = canvas.getContext("2d"); canvas.width = window.innerWidth; canvas.height = window.innerHeight; const particles = []; for (let i = 0; i < 300; i++) { particles.push({ x: Math.random() * canvas.width, y: Math.random() * canvas.height - canvas.height, vx: Math.random() * 4 - 2, vy: Math.random() * 4 + 2, color: `hsl(${Math.random() * 360}, 100%, 50%)`, size: Math.random() * 6 + 2 }); } function animate() { ctx.clearRect(0, 0, canvas.width, canvas.height); let active = false; particles.forEach(p => { p.x += p.vx; p.y += p.vy; if (p.y < canvas.height) active = true; ctx.fillStyle = p.color; ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2); ctx.fill(); }); if (active) requestAnimationFrame(animate); else ctx.clearRect(0,0,canvas.width,canvas.height); } animate(); }
+        
+        function exportWinners() {
+            if (state.winners.length === 0) return alert("Dışa aktarılacak veri yok!");
+            const grouped = {};
+            state.winners.forEach(w => {
+                const reward = w.reward || "Bilinmeyen Ödül";
+                if (!grouped[reward]) grouped[reward] = [];
+                grouped[reward].push(w.name);
+            });
+            let textContent = "DWAR ETKİNLİK MERKEZİ - KAZANANLAR LİSTESİ\n";
+            textContent += "Tarih: " + new Date().toLocaleString() + "\n";
+            textContent += "==========================================\n\n";
+            for (const [reward, names] of Object.entries(grouped)) {
+                textContent += `>>> ÖDÜL: ${reward} <<<\n`;
+                textContent += `------------------------------------------\n`;
+                names.forEach((name, index) => { textContent += `${index + 1}. ${name}\n`; });
+                textContent += `\n`; 
+            }
+            const blob = new Blob([textContent], { type: 'text/plain;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            link.setAttribute("href", url);
+            link.setAttribute("download", "kazananlar_gruplandirilmis.txt");
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        function confirmReset() { 
+            if(confirm("DİKKAT: Bu işlem tüm katılımcı listelerini veritabanından silecek ve ekranı temizleyecektir. Oturum kapanmayacaktır. Devam edilsin mi?")) { 
+                window.fullSystemReset();
+            } 
+        }
+
+        // CONFETTI FUNC
+        function fireConfetti() {
+            const canvas = document.getElementById("confetti-canvas");
+            const ctx = canvas.getContext("2d");
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            const particles = [];
+            for (let i = 0; i < 300; i++) {
+                particles.push({
+                    x: Math.random() * canvas.width,
+                    y: Math.random() * canvas.height - canvas.height,
+                    vx: Math.random() * 4 - 2,
+                    vy: Math.random() * 4 + 2,
+                    color: `hsl(${Math.random() * 360}, 100%, 50%)`,
+                    size: Math.random() * 6 + 2
+                });
+            }
+            function animate() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                let active = false;
+                particles.forEach(p => {
+                    p.x += p.vx;
+                    p.y += p.vy;
+                    if (p.y < canvas.height) active = true;
+                    ctx.fillStyle = p.color;
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                    ctx.fill();
+                });
+                if (active) requestAnimationFrame(animate);
+                else ctx.clearRect(0,0,canvas.width,canvas.height);
+            }
+            animate();
+        }
 
         window.onload = init;
     </script>
