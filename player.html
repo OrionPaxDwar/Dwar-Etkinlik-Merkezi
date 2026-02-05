@@ -16,11 +16,6 @@
         /* Animasyonlar */
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         .fade-in { animation: fadeIn 0.4s ease-out forwards; }
-
-        /* Scrollbar for prize list */
-        .custom-scroll::-webkit-scrollbar { width: 4px; }
-        .custom-scroll::-webkit-scrollbar-track { background: rgba(255,255,255,0.05); }
-        .custom-scroll::-webkit-scrollbar-thumb { background: rgba(56, 189, 248, 0.5); border-radius: 4px; }
     </style>
 </head>
 <body class="min-h-screen flex flex-col items-center justify-center p-4 relative overflow-hidden">
@@ -146,37 +141,6 @@
             <button id="join-btn" onclick="submitEntry()" class="w-full bg-gradient-to-r from-sky-600 to-blue-600 hover:from-sky-500 hover:to-blue-500 py-4 rounded-xl font-bold uppercase tracking-widest transition transform active:scale-95 shadow-lg shadow-sky-900/50">
                 Oyuna Katıl
             </button>
-            
-            <!-- İSTATİSTİK BÖLÜMÜ -->
-            <div class="mt-4 pt-3 border-t border-slate-700/50">
-                <button onclick="toggleStats()" class="w-full text-center text-xs text-sky-400 hover:text-sky-300 transition flex items-center justify-center gap-2 py-2">
-                    <i class="fa-solid fa-trophy"></i> İstatistiklerimi Görüntüle <i id="stats-chevron" class="fa-solid fa-chevron-down text-[10px]"></i>
-                </button>
-                
-                <div id="stats-container" class="hidden bg-slate-800/60 rounded-xl p-4 mt-2 border border-slate-700/50">
-                    <div class="flex justify-between items-center mb-3 pb-3 border-b border-slate-700/50">
-                        <div class="text-center w-1/2 border-r border-slate-700/50">
-                            <div class="text-[10px] uppercase text-slate-400 font-bold">Toplam Katılım</div>
-                            <div id="stat-participation" class="text-xl font-bold text-white mt-1">0</div>
-                        </div>
-                        <div class="text-center w-1/2">
-                            <div class="text-[10px] uppercase text-slate-400 font-bold">Kazanılan</div>
-                            <div id="stat-wins" class="text-xl font-bold text-green-400 mt-1">0</div>
-                        </div>
-                    </div>
-                    
-                    <div>
-                        <div class="text-[10px] uppercase text-slate-400 font-bold mb-2 flex items-center gap-2">
-                            <i class="fa-solid fa-gift text-yellow-500"></i> Kazanılan Ödüller
-                        </div>
-                        <ul id="stat-prize-list" class="space-y-2 max-h-32 overflow-y-auto custom-scroll text-sm">
-                            <li class="text-slate-500 italic text-xs text-center py-2">Henüz ödül kaydı yok.</li>
-                        </ul>
-                    </div>
-                </div>
-            </div>
-            <!-- İSTATİSTİK BİTİŞ -->
-
         </div>
     </div>
 
@@ -191,10 +155,9 @@
     </div>
 
     <script type="module">
-        // Importlar güncellendi (collection, query, where, getDocs eklendi)
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, onSnapshot, setDoc, getDoc, updateDoc, collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, doc, onSnapshot, setDoc, getDoc, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // FIREBASE CONFIG
         const firebaseConfig = {
@@ -338,8 +301,7 @@
                     race: race,
                     pin: pin,
                     createdAt: new Date().toISOString(),
-                    uid: currentUser.uid,
-                    total_participation: 0 // Yeni kayıtlar için başlangıç değeri
+                    uid: currentUser.uid // Güvenlik için bağlayabiliriz
                 });
 
                 alert("Kayıt başarılı! Giriş yapıldı.");
@@ -392,6 +354,9 @@
             if(!newNick || !newPin || newPin.length !== 6) return alert("Geçerli bilgiler girin.");
 
             try {
+                // Eğer nick değiştiyse, eskiyi sil yeniyi oluştur yapmamız lazım (Firestore Doc ID değişiyor)
+                // Basitlik için sadece aynı nick ise update, farklı ise kontrol et diyelim.
+                
                 if (newNick !== editCurrentNick) {
                     // Nick değişiyor
                     const newRef = doc(db, "artifacts", "default", "public", "data", "player_profiles", newNick);
@@ -400,9 +365,10 @@
 
                     // Yeni oluştur
                     await setDoc(newRef, { nick: newNick, race: newRace, pin: newPin, uid: currentUser.uid });
+                    // Eskiyi istersen sil (opsiyonel, burada silmiyoruz belki veri kaybı olmasın diye ama normalde silinir)
                     
                     alert("Bilgiler güncellendi! Lütfen yeni bilgilerle giriş yapın.");
-                    location.reload();
+                    location.reload(); // Sayfayı yenile temiz başlasın
                 } else {
                     // Sadece data update
                     const profileRef = doc(db, "artifacts", "default", "public", "data", "player_profiles", editCurrentNick);
@@ -411,8 +377,9 @@
                         pin: newPin
                     });
                     alert("Bilgiler güncellendi!");
+                    // Login state güncelle
                     loginSuccess(newNick, newRace, newPin);
-                    switchTab('login');
+                    switchTab('login'); // Geri dön
                 }
 
             } catch(e) {
@@ -420,86 +387,12 @@
             }
         };
 
-        // --- İSTATİSTİK YÜKLEME ---
-        window.toggleStats = () => {
-            const container = document.getElementById('stats-container');
-            const chevron = document.getElementById('stats-chevron');
-            
-            if (container.classList.contains('hidden')) {
-                container.classList.remove('hidden');
-                container.classList.add('fade-in');
-                chevron.classList.remove('fa-chevron-down');
-                chevron.classList.add('fa-chevron-up');
-                // Açıldığında verileri tazeleyelim
-                loadPlayerStats();
-            } else {
-                container.classList.add('hidden');
-                chevron.classList.remove('fa-chevron-up');
-                chevron.classList.add('fa-chevron-down');
-            }
-        };
-
-        async function loadPlayerStats() {
-            if (!loggedInPlayer) return;
-
-            try {
-                // 1. Profil Verilerini Al (Katılım Sayısı için)
-                const profileRef = doc(db, "artifacts", "default", "public", "data", "player_profiles", loggedInPlayer.nick);
-                const profileSnap = await getDoc(profileRef);
-                
-                // Eğer veritabanında "total_participation" alanı varsa onu kullan, yoksa 0.
-                const participation = (profileSnap.exists() && profileSnap.data().total_participation) 
-                                      ? profileSnap.data().total_participation 
-                                      : 0;
-                
-                document.getElementById('stat-participation').innerText = participation;
-
-                // 2. Kazanılan Ödülleri ve Sayısını Bul (Winners koleksiyonundan)
-                const winnersRef = collection(db, "artifacts", "default", "public", "data", "winners");
-                const q = query(winnersRef, where("nick", "==", loggedInPlayer.nick));
-                const querySnapshot = await getDocs(q);
-
-                const winCount = querySnapshot.size;
-                document.getElementById('stat-wins').innerText = winCount;
-
-                const prizeListEl = document.getElementById('stat-prize-list');
-                prizeListEl.innerHTML = ""; // Temizle
-
-                if (winCount === 0) {
-                    prizeListEl.innerHTML = '<li class="text-slate-500 italic text-xs text-center py-2">Henüz ödül kaydı yok.</li>';
-                } else {
-                    const prizes = [];
-                    querySnapshot.forEach((doc) => {
-                        const d = doc.data();
-                        prizes.push(d);
-                    });
-
-                    // Listeyi oluştur
-                    prizes.forEach(p => {
-                        const li = document.createElement('li');
-                        li.className = "flex items-center gap-2 bg-slate-700/30 p-2 rounded border border-slate-600/30";
-                        li.innerHTML = `
-                            <i class="fa-solid fa-trophy text-yellow-500 text-xs"></i>
-                            <span class="text-white font-medium flex-1">${p.prize || "Bilinmeyen Ödül"}</span>
-                        `;
-                        prizeListEl.appendChild(li);
-                    });
-                }
-
-            } catch (error) {
-                console.error("İstatistik yükleme hatası:", error);
-            }
-        }
-
         // --- YARDIMCI FONKSİYONLAR ---
         function loginSuccess(nick, race, pin) {
             loggedInPlayer = { nick, race, pin };
             localStorage.setItem('dwar_player_session', JSON.stringify(loggedInPlayer));
             
             updateProfileUI();
-            
-            // Giriş yapınca istatistikleri arka planda hazırla
-            loadPlayerStats();
 
             // Ekran geçişi
             document.getElementById('auth-container').classList.add('hidden');
@@ -555,32 +448,14 @@
             try {
                 const entryRef = doc(db, "artifacts", "default", "public", "data", "entries", currentUser.uid);
 
-                // Katılımı kaydet
                 await setDoc(entryRef, {
-                    nick: loggedInPlayer.nick, 
-                    race: loggedInPlayer.race, 
+                    nick: loggedInPlayer.nick, // Profilden gelen nick
+                    race: loggedInPlayer.race, // Profilden gelen ırk
                     game: activeGameState.game,
                     round: activeGameState.round,
                     prediction: extra,
                     timestamp: new Date().toISOString()
                 });
-                
-                // NOT: Eğer katılım sayısını artırmak isterseniz buraya profil güncelleme kodu ekleyebilirsiniz
-                // veya bunu yönetici panelinden yönetebilirsiniz.
-                // Basitlik için burada sayacı artırıyorum:
-                try {
-                    const profileRef = doc(db, "artifacts", "default", "public", "data", "player_profiles", loggedInPlayer.nick);
-                    const pSnap = await getDoc(profileRef);
-                    let currentCount = 0;
-                    if (pSnap.exists() && pSnap.data().total_participation) {
-                        currentCount = parseInt(pSnap.data().total_participation) || 0;
-                    }
-                    await updateDoc(profileRef, { total_participation: currentCount + 1 });
-                    
-                    // UI'daki sayıyı hemen güncelle
-                    document.getElementById('stat-participation').innerText = currentCount + 1;
-                    
-                } catch(err) { console.log("Sayaç güncellenemedi, kritik değil."); }
 
                 hasJoinedCurrentRound = true;
                 showScreen('success');
