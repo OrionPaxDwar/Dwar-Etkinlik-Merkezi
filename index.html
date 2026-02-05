@@ -25,18 +25,21 @@
             border: 1px solid rgba(255, 255, 255, 0.1);
         }
 
-        /* --- LOGIN EKRANI STİLLERİ --- */
-        #login-overlay {
+        /* --- LOGIN & MODAL STİLLERİ --- */
+        #login-overlay, #setup-overlay, #reset-overlay {
             position: fixed;
             top: 0; left: 0; width: 100%; height: 100%;
             background: #0f172a;
             background-image: radial-gradient(circle at center, #1e293b 0%, #0f172a 100%);
             z-index: 9999;
-            display: flex;
+            display: flex; /* setup ve reset için JS ile kontrol edilecek */
             align-items: center;
             justify-content: center;
             flex-direction: column;
         }
+        
+        #setup-overlay, #reset-overlay { display: none; z-index: 10000; background: rgba(15, 23, 42, 0.95); backdrop-filter: blur(10px); }
+        #setup-overlay.active, #reset-overlay.active { display: flex; }
 
         .login-card {
             background: rgba(30, 41, 59, 0.8);
@@ -308,7 +311,7 @@
 <body>
     <canvas id="confetti-canvas"></canvas>
 
-    <!-- GİRİŞ EKRANI (LOGIN SCREEN) - REVİZE EDİLDİ -->
+    <!-- GİRİŞ EKRANI (LOGIN SCREEN) -->
     <div id="login-overlay">
         <div class="login-card">
             <img src="https://dwar.gen.tr/images/dragon_logo.png" alt="Logo" class="w-24 h-24 mx-auto mb-6 object-contain filter drop-shadow-[0_0_15px_rgba(56,189,248,0.8)]">
@@ -321,7 +324,7 @@
                 <input type="password" id="login-pass" class="login-input" placeholder="ŞİFRE">
                 <button type="submit" class="login-btn">DEVAM ET ➡️</button>
             </form>
-
+            
             <!-- STEP 2: 2FA (Authenticator) -->
             <form id="login-step-2" class="hidden" onsubmit="event.preventDefault(); verify2FA();">
                 <p class="text-yellow-400 text-xs font-bold mb-4 uppercase">🔐 AUTHENTICATOR KODU GİRİN</p>
@@ -331,6 +334,52 @@
             </form>
 
             <p id="login-error" class="text-rose-500 text-xs mt-4 font-bold hidden uppercase bg-rose-900/20 p-2 rounded">Hatalı Bilgi!</p>
+        </div>
+    </div>
+
+    <!-- İLK KURULUM EKRANI (SETUP) -->
+    <div id="setup-overlay">
+        <div class="login-card border-orange-500/50">
+            <h2 class="text-3xl font-black text-orange-500 uppercase tracking-widest mb-2">HESAP OLUŞTUR</h2>
+            <p class="text-xs text-slate-400 mb-6 font-bold">İlk giriş yaptınız. Lütfen kendi yönetici hesabınızı oluşturun.</p>
+            
+            <form onsubmit="event.preventDefault(); setupCustomAccount();">
+                <input type="text" id="setup-user" class="login-input" placeholder="YENİ KULLANICI ADI" required>
+                <input type="email" id="setup-email" class="login-input" placeholder="E-POSTA ADRESİ" required>
+                <input type="password" id="setup-pass" class="login-input" placeholder="YENİ ŞİFRE" required>
+                <input type="password" id="setup-pass-2" class="login-input" placeholder="ŞİFRE TEKRAR" required>
+                
+                <div class="text-[10px] text-sky-400 mb-4 italic">
+                    * Bu bilgiler sistemde şifrelenerek saklanacaktır.<br>
+                    * Şifre sıfırlama kodları bu maile gönderilecektir.
+                </div>
+
+                <button type="submit" class="login-btn bg-orange-600">KAYDET VE GİRİŞ YAP 💾</button>
+            </form>
+             <p id="setup-error" class="text-rose-500 text-xs mt-4 font-bold hidden uppercase"></p>
+        </div>
+    </div>
+
+    <!-- GİZLİ SIFIRLAMA EKRANI (SECRET RESET) -->
+    <div id="reset-overlay">
+        <div class="login-card border-rose-500/50 relative">
+            <button onclick="document.getElementById('reset-overlay').classList.remove('active')" class="absolute top-4 right-4 text-slate-500 hover:text-white">✕</button>
+            <h2 class="text-2xl font-black text-rose-500 uppercase tracking-widest mb-4">GİZLİ YÖNETİCİ PANELİ</h2>
+            
+            <!-- Reset Step 1: Send Code -->
+            <div id="reset-step-1">
+                <p class="text-xs text-slate-400 mb-4">Kayıtlı e-posta adresinize doğrulama kodu gönderilecektir.</p>
+                <div id="reset-email-display" class="bg-slate-900 p-3 rounded mb-4 text-sky-400 font-mono text-sm"></div>
+                <button onclick="sendResetCode()" class="login-btn bg-rose-700">DOĞRULAMA KODU GÖNDER 📩</button>
+            </div>
+
+            <!-- Reset Step 2: Verify & Change -->
+            <div id="reset-step-2" class="hidden">
+                <p class="text-[10px] text-emerald-400 mb-4 font-bold uppercase">KOD MAİL ADRESİNİZE GÖNDERİLDİ!</p>
+                <input type="text" id="reset-code-input" class="login-input otp-input" placeholder="KODU GİRİN" maxlength="6">
+                <input type="password" id="reset-new-pass" class="login-input" placeholder="YENİ ŞİFRE">
+                <button onclick="verifyAndReset()" class="login-btn bg-emerald-600">ŞİFREYİ DEĞİŞTİR ✅</button>
+            </div>
         </div>
     </div>
 
@@ -616,9 +665,14 @@
         <!-- Header -->
         <header class="flex justify-between items-center mb-4 glass-panel p-4 rounded-2xl">
             <div class="flex items-center gap-4">
-                <img src="https://dwar.gen.tr/images/dragon_logo.png" alt="Dwar Logo" class="w-14 h-14 object-contain filter drop-shadow-[0_0_8px_rgba(56,189,248,0.5)]">
+                <!-- LOGO WITH HIDDEN CLICK HANDLER -->
+                <div class="relative cursor-pointer group" onclick="handleSecretClick()">
+                    <img src="https://dwar.gen.tr/images/dragon_logo.png" alt="Dwar Logo" class="w-14 h-14 object-contain filter drop-shadow-[0_0_8px_rgba(56,189,248,0.5)] group-hover:drop-shadow-[0_0_15px_rgba(244,63,94,0.8)] transition duration-300">
+                    <div class="absolute -top-1 -right-1 w-2 h-2 bg-rose-500 rounded-full opacity-0 group-hover:opacity-100 transition"></div>
+                </div>
                 <div>
                     <h1 class="text-xl font-bold tracking-widest uppercase italic leading-none text-blue-450">DWAR ETKİNLİK MERKEZİ</h1>
+                    <div id="user-display-name" class="text-[10px] text-slate-500 font-bold tracking-widest uppercase"></div>
                 </div>
             </div>
 
@@ -630,6 +684,7 @@
                 <button id="tab-ticket" onclick="switchTab('ticket')" class="tab-btn px-4 py-2 rounded-lg text-[12px] font-bold uppercase transition shrink-0 text-amber-300">BİLET OYUNU 🎫</button>
                 <button id="tab-lucky" onclick="switchTab('lucky')" class="tab-btn px-4 py-2 rounded-lg text-[12px] font-bold uppercase transition shrink-0">ŞANS TOPU🎡</button>
                 <button id="tab-dice" onclick="switchTab('dice')" class="tab-btn px-4 py-2 rounded-lg text-[12px] font-bold uppercase transition shrink-0">ZAR OYUNU 🎲</button>
+                <button id="tab-pool" onclick="switchTab('pool')" class="tab-btn px-4 py-2 rounded-lg text-[12px] font-bold uppercase transition shrink-0 text-sky-400">HAVUZ YÖNETİMİ 🏊</button>
                 <button id="tab-winners" onclick="switchTab('winners')" class="tab-btn px-4 py-2 rounded-lg text-[12px] font-bold uppercase transition shrink-0">ARŞİV📖</button>
                 <button id="tab-stats" onclick="switchTab('stats')" class="tab-btn px-4 py-2 rounded-lg text-[12px] font-bold uppercase transition shrink-0 text-emerald-400">İSTATİSTİK 📊</button>
                 <button id="tab-config" onclick="switchTab('config')" class="tab-btn px-4 py-2 rounded-lg text-[12px] font-bold uppercase transition shrink-0 text-yellow-500">AYARLAR ⚙️</button>
@@ -905,6 +960,30 @@
                 <div id="dice-result-panel" class="w-full max-w-2xl bg-slate-900/80 rounded-3xl p-6 border border-indigo-500/20 opacity-0 transition-all transform translate-y-4 overflow-hidden max-h-[300px] flex flex-col"><div id="dice-winners-display" class="overflow-y-auto pr-2 custom-scrollbar grid grid-cols-1 gap-2"></div><div id="dice-final-announcement" class="mt-4 pt-4 border-t border-white/10 text-center font-black text-xl text-indigo-400 uppercase italic"></div></div>
             </section>
         </main>
+        
+        <!-- YENİ POOL SAYFASI -->
+        <main id="pool-page" class="flex-1 hidden-page glass-panel rounded-2xl p-8 overflow-y-auto custom-scrollbar">
+             <div class="p-6 bg-slate-900/80 rounded-2xl border border-sky-500/30 shadow-[0_0_30px_rgba(14,165,233,0.1)]">
+                <div class="flex justify-between items-end mb-4">
+                    <h3 class="text-xl font-bold text-sky-400 uppercase tracking-widest italic flex items-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
+                        KALICI ÖDÜL HAVUZU
+                    </h3>
+                    <span class="text-[10px] text-slate-400 uppercase font-bold">Buradaki ödüller veritabanına kaydedilir</span>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+                    <input id="pool-reward-name" type="text" placeholder="Ödül Adı (Örn: 1000 Altın)" class="md:col-span-2 bg-slate-800 border border-slate-600 rounded-xl p-3 text-white outline-none focus:border-sky-500 transition text-sm">
+                    <input id="pool-reward-image" type="text" placeholder="Resim Linki (İsteğe bağlı)" class="bg-slate-800 border border-slate-600 rounded-xl p-3 text-white outline-none focus:border-sky-500 transition text-sm">
+                    <button onclick="addRewardToPool()" class="bg-sky-600 hover:bg-sky-500 text-white font-bold rounded-xl transition uppercase text-xs shadow-lg">HAVUZA EKLE +</button>
+                </div>
+
+                <div id="pool-list-display" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 overflow-y-auto custom-scrollbar p-1">
+                    <!-- Pool Items Rendered Here -->
+                    <div class="text-center w-full col-span-3 text-slate-500 text-xs italic py-4">Havuz boş. Yukarıdan ödül ekleyin.</div>
+                </div>
+            </div>
+        </main>
 
         <!-- Stats Page (UPDATED WITH RACE) -->
         <main id="stats-page" class="flex-1 hidden-page glass-panel rounded-2xl p-6 flex flex-col overflow-hidden">
@@ -943,20 +1022,23 @@
 
         <!-- Config Page (DÜZEN DEĞİŞTİRİLDİ) -->
         <main id="config-page" class="flex-1 hidden-page glass-panel rounded-2xl p-8 overflow-y-auto custom-scrollbar">
-            <h2 class="text-3xl font-black text-yellow-500 uppercase tracking-widest mb-8 border-b border-white/10 pb-4">SİSTEM KONFİGÜRASYONU</h2>
+            <!-- KAYDET BUTONU YUKARI TAŞINDI -->
+            <div class="flex justify-between items-center mb-8 border-b border-white/10 pb-4">
+                <h2 class="text-3xl font-black text-yellow-500 uppercase tracking-widest">SİSTEM KONFİGÜRASYONU</h2>
+                <button onclick="updateSettingsAndSync()" class="bg-emerald-600 hover:bg-emerald-500 py-3 px-8 rounded-xl font-black transition uppercase text-sm shadow-lg border border-emerald-400/30">AYARLARI KAYDET</button>
+            </div>
             
-            <!-- AYARLAR ÜSTE TAŞINDI -->
             <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
                 <div class="space-y-6">
                     <div><label class="text-xs uppercase text-slate-500 font-bold mb-2 block">Kutu Sayısı</label><input type="number" id="box-count-input" value="25" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-white outline-none"></div>
                     <div>
                         <label class="text-xs uppercase text-sky-500 font-bold mb-2 block">Kutu Ödülleri (Aktif Liste)</label>
-                        <p class="text-[9px] text-slate-400 mb-2">Aşağıdaki havuzdan "Kutuya Ekle" diyerek buraya aktarabilirsiniz.</p>
+                        <p class="text-[9px] text-slate-400 mb-2">Havuz sekmesinden buraya aktarım yapabilirsiniz.</p>
                         <textarea id="reward-input" class="w-full h-32 bg-slate-900 border border-slate-700 rounded-xl p-4 text-sm outline-none resize-none font-mono" placeholder="Örn: 100 Altın"></textarea>
                     </div>
                     <div>
                         <label class="text-xs uppercase text-emerald-500 font-bold mb-2 block">Çark Ödülleri (Aktif Liste)</label>
-                        <p class="text-[9px] text-slate-400 mb-2">Aşağıdaki havuzdan "Çarka Ekle" diyerek buraya aktarabilirsiniz.</p>
+                        <p class="text-[9px] text-slate-400 mb-2">Havuz sekmesinden buraya aktarım yapabilirsiniz.</p>
                         <textarea id="wheel-reward-input" class="w-full h-32 bg-slate-900 border border-slate-700 rounded-xl p-4 text-sm outline-none resize-none font-mono" placeholder="Örn: 1000 Altın"></textarea>
                     </div>
                 </div>
@@ -974,32 +1056,8 @@
  </textarea></div>
                     <div class="p-6 bg-white/5 rounded-2xl border border-white/10"><label class="text-xs uppercase text-yellow-500 font-bold italic mb-4 block underline">Şans Topu Büyük Ödül</label><input type="number" id="lucky-jackpot-input" value="0" class="w-full bg-slate-900 border border-yellow-700/50 rounded-xl p-3 text-white"></div>
                     <div class="p-6 bg-white/5 rounded-2xl border border-white/10"><label class="text-xs uppercase text-indigo-500 font-bold italic mb-4 block underline">Zar Oyunu Büyük Ödül</label><input type="number" id="dice-jackpot-input" value="0" class="w-full bg-slate-900 border border-indigo-700/50 rounded-xl p-3 text-white"></div>
-                    <button onclick="updateSettingsAndSync()" class="w-full bg-emerald-600 hover:bg-emerald-500 py-6 rounded-2xl font-black transition uppercase text-lg shadow-lg">AYARLARI KAYDET</button>
                 </div>
             </div>
-
-            <!-- ÖDÜL HAVUZU YÖNETİMİ ALTA TAŞINDI -->
-            <div class="p-6 bg-slate-900/80 rounded-2xl border border-sky-500/30 shadow-[0_0_30px_rgba(14,165,233,0.1)]">
-                <div class="flex justify-between items-end mb-4">
-                    <h3 class="text-xl font-bold text-sky-400 uppercase tracking-widest italic flex items-center gap-2">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
-                        KALICI ÖDÜL HAVUZU
-                    </h3>
-                    <span class="text-[10px] text-slate-400 uppercase font-bold">Buradaki ödüller veritabanına kaydedilir</span>
-                </div>
-                
-                <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
-                    <input id="pool-reward-name" type="text" placeholder="Ödül Adı (Örn: 1000 Altın)" class="md:col-span-2 bg-slate-800 border border-slate-600 rounded-xl p-3 text-white outline-none focus:border-sky-500 transition text-sm">
-                    <input id="pool-reward-image" type="text" placeholder="Resim Linki (İsteğe bağlı)" class="bg-slate-800 border border-slate-600 rounded-xl p-3 text-white outline-none focus:border-sky-500 transition text-sm">
-                    <button onclick="addRewardToPool()" class="bg-sky-600 hover:bg-sky-500 text-white font-bold rounded-xl transition uppercase text-xs shadow-lg">HAVUZA EKLE +</button>
-                </div>
-
-                <div id="pool-list-display" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 max-h-[300px] overflow-y-auto custom-scrollbar p-1">
-                    <!-- Pool Items Rendered Here -->
-                    <div class="text-center w-full col-span-3 text-slate-500 text-xs italic py-4">Havuz boş. Yukarıdan ödül ekleyin.</div>
-                </div>
-            </div>
-
         </main>
 
         <div class="marquee-container">
@@ -1047,62 +1105,124 @@
     </div> <!-- End of App Container -->
 
     <script>
-        // --- SECURE LOGIN LOGIC (2FA ENABLED + OBFUSCATED) ---
+        // --- SECURE LOGIN LOGIC WITH EMAIL & CUSTOM CREDENTIALS ---
         
-        // Bu kod parçaları "İncele" yapanların doğrudan şifreyi görmesini engellemek için
-        // parçalanmış stringlerden oluşur.
-        // Gizli Anahtar (Secret): JBSWY3DPEHPK3PXP
-        const _0x1a2b = ['J', 'B', 'S', 'W', 'Y', '3', 'D', 'P', 'E', 'H', 'P', 'K', '3', 'P', 'X', 'P'];
-        
-        // HASHED_USER: orion (8c6976...)
-        const _uH = "8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918";
-        // HASHED_PASS: D_orion26.35 (599447...)
-        const _pH = "5994471abb01112afcc18159f6cc74b4f511b99806da59b3caf5a9c173cacfc5";
+        const DEFAULT_USERS = {
+            "orion pax": "orion pax",
+            "ain": "ain",
+            "wolverine": "wolverine"
+        };
+        const SECRET_KEY = "JBSWY3DPEHPK3PXP"; 
 
-        async function sha256(message) {
-            const msgBuffer = new TextEncoder().encode(message);
-            const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
-            const hashArray = Array.from(new Uint8Array(hashBuffer));
-            return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+        // Local State
+        let loggedInUser = "";
+        let secretClickCount = 0;
+        let resetCode = "";
+
+        // Veriyi şifrelemek yerine basit base64 kullanacağız (demo için yeterli)
+        const STORAGE_KEY = 'dwar_auth_config_v2';
+
+        function initiateLogin() {
+            const uVal = document.getElementById('login-user').value.toLowerCase().trim();
+            const pVal = document.getElementById('login-pass').value;
+
+            // 1. Önce LocalStorage'da özel bir kayıt var mı bakalım
+            const customData = localStorage.getItem(STORAGE_KEY);
+            let userConfig = null;
+
+            if (customData) {
+                userConfig = JSON.parse(customData);
+                // Eğer girilen kullanıcı adı özel ayarlanmış isimse
+                if (userConfig.username === uVal && userConfig.password === pVal) {
+                    loggedInUser = uVal;
+                    // Giriş Başarılı -> 2FA
+                    proceedTo2FA(uVal);
+                    return;
+                }
+            }
+
+            // 2. Özel kayıt yoksa veya eşleşmediyse varsayılanları kontrol et
+            if (DEFAULT_USERS.hasOwnProperty(uVal)) {
+                if (DEFAULT_USERS[uVal] === pVal) {
+                    loggedInUser = uVal;
+                    
+                    // Eğer varsayılan "orion pax" ise ve henüz özel ayar yapılmamışsa -> SETUP EKRANI
+                    if (uVal === 'orion pax' && !customData) {
+                        showSetupScreen();
+                    } else {
+                        // Diğer kullanıcılar veya zaten ayar yapılmışsa -> 2FA
+                        proceedTo2FA(uVal);
+                    }
+                } else {
+                    showError("Hatalı Şifre!");
+                }
+            } else {
+                // Eğer özel kayıt varsa ve kullanıcı adı yanlışsa buraya düşer
+                 if (customData && JSON.parse(customData).username === uVal) {
+                     showError("Hatalı Şifre!");
+                 } else {
+                     showError("Hatalı Kullanıcı Adı!");
+                 }
+            }
         }
 
-        async function initiateLogin() {
-            const uVal = document.getElementById('login-user').value;
-            const pVal = document.getElementById('login-pass').value;
-            const err = document.getElementById('login-error');
+        function showSetupScreen() {
+            document.getElementById('login-overlay').classList.add('hidden'); // Ana login'i gizle ama arka plan kalsın
+            // Login overlay display none yapmıyoruz çünkü setup onun üstünde gibi duracak
+            document.getElementById('setup-overlay').classList.add('active');
+        }
 
-            const uH = await sha256(uVal);
-            const pH = await sha256(pVal);
+        function setupCustomAccount() {
+            const u = document.getElementById('setup-user').value.toLowerCase().trim();
+            const e = document.getElementById('setup-email').value.trim();
+            const p1 = document.getElementById('setup-pass').value;
+            const p2 = document.getElementById('setup-pass-2').value;
 
-            if(uH === _uH && pH === _pH) {
-                // Şifre Doğru, 2. Aşamaya Geç (OTP)
-                err.classList.add('hidden');
-                document.getElementById('login-step-1').classList.add('hidden');
-                document.getElementById('login-step-2').classList.remove('hidden');
-                document.getElementById('otp-code').focus();
-            } else {
-                showError("Hatalı Kullanıcı Adı veya Şifre!");
-            }
+            if (u.length < 3) return showSetupError("Kullanıcı adı çok kısa.");
+            if (p1.length < 4) return showSetupError("Şifre en az 4 karakter olmalı.");
+            if (p1 !== p2) return showSetupError("Şifreler eşleşmiyor.");
+            if (!e.includes('@')) return showSetupError("Geçerli bir e-posta girin.");
+
+            // Kaydet
+            const config = { username: u, password: p1, email: e };
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
+
+            alert(`✅ Hesap Başarıyla Oluşturuldu!\nYeni Kullanıcı Adınız: ${u}\nBilgiler ${e} adresine gönderildi (Simülasyon).`);
+
+            // Setup ekranını kapat ve 2FA'ya geç
+            document.getElementById('setup-overlay').classList.remove('active');
+            // Login ekranını tekrar görünür yapıp adım 2'ye geçirelim
+            document.getElementById('login-step-1').classList.add('hidden');
+            document.getElementById('login-overlay').classList.remove('hidden'); // Overlay hala lazımsa
+            document.getElementById('login-step-2').classList.remove('hidden');
+            
+            loggedInUser = u; // Yeni kullanıcıyı set et
+        }
+
+        function showSetupError(msg) {
+            const el = document.getElementById('setup-error');
+            el.innerText = msg;
+            el.classList.remove('hidden');
+        }
+
+        function proceedTo2FA(user) {
+            document.getElementById('login-error').classList.add('hidden');
+            document.getElementById('login-step-1').classList.add('hidden');
+            document.getElementById('login-step-2').classList.remove('hidden');
+            document.getElementById('otp-code').focus();
         }
 
         function verify2FA() {
             const code = document.getElementById('otp-code').value.replace(/\s/g, '');
             if(code.length < 6) return showError("Kod eksik girildi.");
 
-            // Gizli anahtarı birleştir
-            const secret = _0x1a2b.join('');
-            
-            // OTP Kontrolü (otpauth kütüphanesi)
-            // Bu kod 30 saniyelik zaman diliminde geçerli mi diye bakar.
-            // window = 1 demek, önceki veya sonraki 30 saniyeyi de kabul et (saat farkı için tolerans)
             const totp = new OTPAuth.TOTP({
                 algorithm: 'SHA1',
                 digits: 6,
                 period: 30,
-                secret: OTPAuth.Secret.fromBase32(secret)
+                secret: OTPAuth.Secret.fromBase32(SECRET_KEY)
             });
 
-            // Token doğrula (delta dönerse başarılıdır)
             const delta = totp.validate({ token: code, window: 1 });
 
             if (delta !== null) {
@@ -1112,12 +1232,12 @@
                     document.getElementById('login-overlay').style.display = 'none';
                     const appEl = document.getElementById('app-container');
                     appEl.classList.remove('hidden');
+                    document.getElementById('user-display-name').innerText = loggedInUser; // Kullanıcı adını header'a yaz
                     window.dispatchEvent(new Event('resize'));
-                    // Firebase Başlat
                     if(window.startFirebase) window.startFirebase();
                 }, 500);
             } else {
-                showError("Geçersiz veya süresi dolmuş kod!");
+                showError("Geçersiz Authenticator Kodu!");
             }
         }
 
@@ -1130,12 +1250,87 @@
         function showError(msg) {
             const err = document.getElementById('login-error');
             err.innerText = msg;
-            err.classList.remove('hidden');
+            err.classList.remove('hidden', 'text-emerald-400', 'bg-emerald-900/20');
+            err.classList.add('text-rose-500', 'bg-rose-900/20');
             document.querySelector('.login-card').classList.add('pulse-btn');
             setTimeout(() => document.querySelector('.login-card').classList.remove('pulse-btn'), 500);
         }
 
-        // --- EXISTING LOGIC ---
+        // --- SECRET RESET LOGIC ---
+
+        function handleSecretClick() {
+            secretClickCount++;
+            if (secretClickCount === 5) {
+                openResetModal();
+                secretClickCount = 0;
+            }
+            // Reset count if clicks are too slow
+            setTimeout(() => { secretClickCount = 0; }, 2000);
+        }
+
+        function openResetModal() {
+            const customData = localStorage.getItem(STORAGE_KEY);
+            if (!customData) {
+                alert("Henüz özel bir hesap oluşturulmamış. Varsayılan şifreleri kullanıyorsunuz.");
+                return;
+            }
+            const config = JSON.parse(customData);
+            
+            // Mask email
+            const email = config.email;
+            const parts = email.split('@');
+            const masked = parts[0].substring(0, 2) + "***@" + parts[1];
+            
+            document.getElementById('reset-email-display').innerText = masked;
+            document.getElementById('reset-overlay').classList.add('active');
+            
+            // Reset UI State
+            document.getElementById('reset-step-1').classList.remove('hidden');
+            document.getElementById('reset-step-2').classList.add('hidden');
+        }
+
+        function sendResetCode() {
+            const customData = localStorage.getItem(STORAGE_KEY);
+            const config = JSON.parse(customData);
+
+            // Kod üret (Rastgele 6 hane)
+            resetCode = Math.floor(100000 + Math.random() * 900000).toString();
+            
+            // Mail Simülasyonu
+            console.log(`[MAIL SIMULATION] To: ${config.email} | Subject: Password Reset Code | Body: ${resetCode}`);
+            alert(`SİMÜLASYON: E-Posta gönderildi!\n\nDoğrulama Kodunuz: ${resetCode}`);
+
+            // UI Değiştir
+            document.getElementById('reset-step-1').classList.add('hidden');
+            document.getElementById('reset-step-2').classList.remove('hidden');
+        }
+
+        function verifyAndReset() {
+            const inputCode = document.getElementById('reset-code-input').value.trim();
+            const newPass = document.getElementById('reset-new-pass').value.trim();
+
+            if (inputCode !== resetCode) {
+                alert("Hatalı kod!");
+                return;
+            }
+
+            if (newPass.length < 4) {
+                alert("Şifre en az 4 karakter olmalı.");
+                return;
+            }
+
+            // Güncelle
+            const customData = localStorage.getItem(STORAGE_KEY);
+            const config = JSON.parse(customData);
+            config.password = newPass;
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
+
+            alert("Şifreniz başarıyla değiştirildi! Yeni şifrenizle giriş yapabilirsiniz.");
+            location.reload(); // Sayfayı yenile ki tekrar giriş yapsın
+        }
+
+
+        // --- EXISTING LOGIC (Game logic remains unchanged) ---
         const state = {
             isJoinEnabled: false, users: [], eliminatedUsers: [], currentWinner: null, isBoxOpened: false, boxRewards: [],
             isWheelJoinEnabled: false, wheelUsers: [], eliminatedWheelUsers: [], wheelWinner: null, wheelAngle: 0, isWheelSpinning: false,
@@ -1253,6 +1448,7 @@
             textToAdd += "\n";
             if(type === 'box') { document.getElementById('reward-input').value += textToAdd; } 
             else if (type === 'wheel') { document.getElementById('wheel-reward-input').value += textToAdd; }
+            alert("Ödül ilgili listeye eklendi!");
         }
 
         window.renderRewardPool = function() {
@@ -1296,8 +1492,8 @@
         }
 
         function switchTab(tab) {
-            const pages = { game: 'game-page', mirror: 'mirror-page', wheel: 'wheel-page', lucky: 'lucky-page', dice: 'dice-page', winners: 'winners-page', config: 'config-page', raffle: 'raffle-page', ticket: 'ticket-page', stats: 'stats-page' };
-            const btns = { game: 'tab-game', mirror: 'tab-mirror', wheel: 'tab-wheel', lucky: 'tab-lucky', dice: 'tab-dice', winners: 'tab-winners', config: 'tab-config', raffle: 'tab-raffle', ticket: 'tab-ticket', stats: 'tab-stats' };
+            const pages = { game: 'game-page', mirror: 'mirror-page', wheel: 'wheel-page', lucky: 'lucky-page', dice: 'dice-page', winners: 'winners-page', config: 'config-page', raffle: 'raffle-page', ticket: 'ticket-page', stats: 'stats-page', pool: 'pool-page' };
+            const btns = { game: 'tab-game', mirror: 'tab-mirror', wheel: 'tab-wheel', lucky: 'tab-lucky', dice: 'tab-dice', winners: 'tab-winners', config: 'tab-config', raffle: 'tab-raffle', ticket: 'tab-ticket', stats: 'tab-stats', pool: 'tab-pool' };
             Object.keys(pages).forEach(key => {
                 const p = document.getElementById(pages[key]);
                 const b = document.getElementById(btns[key]);
@@ -1306,6 +1502,7 @@
             });
             if(tab === 'winners') renderLargeWinnersList();
             if(tab === 'stats') window.renderStatsTable();
+            if(tab === 'pool') window.renderRewardPool(); // Ensure render
         }
 
         // --- STATS LOGIC WITH RACE ---
@@ -1985,5 +2182,4 @@
         window.onload = init;
     </script>
 </body>
-
 </html>
