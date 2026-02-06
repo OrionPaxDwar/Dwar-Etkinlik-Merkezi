@@ -194,7 +194,7 @@
             overflow: hidden;
             display: flex;
             align-items: center;
-            gap: 16px;
+            gap: 12px;
             box-shadow: 0 10px 30px rgba(0,0,0,0.6), inset 0 0 0 1px rgba(217, 119, 6, 0.2);
             animation: card-flip-in 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
             opacity: 0;
@@ -222,23 +222,24 @@
         }
 
         .raffle-rank-badge {
-            width: 48px; height: 48px;
+            width: 40px; height: 40px;
             background: linear-gradient(135deg, #f59e0b, #b45309);
             border-radius: 8px;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 20px;
+            font-size: 18px;
             font-weight: 900;
             color: #fff;
             box-shadow: 0 4px 10px rgba(245, 158, 11, 0.4);
             border: 2px solid #fff;
             transform: rotate(-5deg);
+            flex-shrink: 0;
         }
 
-        .raffle-info { flex: 1; z-index: 2; }
+        .raffle-info { flex: 1; z-index: 2; overflow: hidden; }
         .raffle-info h4 { font-size: 9px; color: #fbbf24; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 2px; }
-        .raffle-info .winner-name { font-size: 22px; font-weight: 900; color: #fff; line-height: 1; text-shadow: 0 2px 10px rgba(0,0,0,0.5); }
+        .raffle-info .winner-name { font-size: 18px; font-weight: 900; color: #fff; line-height: 1; text-shadow: 0 2px 10px rgba(0,0,0,0.5); truncate; }
         .raffle-info .reward-tag { font-size: 11px; color: #94a3b8; font-weight: 700; margin-top: 4px; display: flex; align-items: center; gap: 4px; }
         .raffle-info .reward-tag span { color: #38bdf8; }
 
@@ -725,7 +726,7 @@
                         <div id="reward-pyramid" class="space-y-1"></div>
                         <div id="mirror-result-announcement" class="mt-6 text-center opacity-0 transition-all transform translate-y-4">
                             <div class="text-[10px] text-slate-400 uppercase font-bold mb-1">KAZANILAN ÖDÜL</div>
-                            <div id="mirror-reward-text" class="text-xl font-black text-emerald-400 uppercase italic leading-tight">...</div>
+                            <div id="mirror-reward-text" class="text-xl font-black text-emerald-400 uppercase italic leading-tight flex flex-col items-center">...</div>
                             <button onclick="resetMirrorRound()" class="mt-4 bg-purple-500 text-white px-6 py-2 rounded-full text-[10px] font-black uppercase">SIRADAKİ OYUNCU</button>
                         </div>
                     </div>
@@ -1430,6 +1431,11 @@
             alert("Ödül ilgili listeye eklendi!");
         }
 
+        window.setRaffleReward = function(name) {
+            document.getElementById('raffle-reward-name').value = name;
+            alert(`Çekiliş ödülü ayarlandı: ${name}`);
+        }
+
         window.renderRewardPool = function() {
             const list = document.getElementById('pool-list-display');
             list.innerHTML = "";
@@ -1447,6 +1453,7 @@
                             <div class="flex gap-1 mt-1 opacity-60 group-hover:opacity-100 transition">
                                 <button onclick="appendToConfig('box', ${r.id})" class="text-[9px] bg-sky-900/50 hover:bg-sky-600 px-2 py-0.5 rounded text-sky-200 hover:text-white">Kutuya Ekle</button>
                                 <button onclick="appendToConfig('wheel', ${r.id})" class="text-[9px] bg-emerald-900/50 hover:bg-emerald-600 px-2 py-0.5 rounded text-emerald-200 hover:text-white">Çarka Ekle</button>
+                                <button onclick="setRaffleReward('${r.name}')" class="text-[9px] bg-orange-900/50 hover:bg-orange-600 px-2 py-0.5 rounded text-orange-200 hover:text-white">Çekilişe Ekle</button>
                             </div>
                         </div>
                         <button onclick="removeRewardFromPool(${r.id})" class="text-rose-500 hover:text-rose-300 font-bold px-2">✕</button>
@@ -1516,6 +1523,20 @@
             });
         }
 
+        // --- HELPER: Find Image in Pool ---
+        function findRewardImage(rewardText) {
+            // Remove digits and 'x' at start (e.g. "5x ", "10 ", "3x") to match name
+            const cleanText = rewardText.replace(/^\d+x?\s*/i, '').trim().toLowerCase();
+            
+            // Find matched item in pool
+            const found = state.rewardPool.find(p => {
+                const poolName = p.name.trim().toLowerCase();
+                return cleanText.includes(poolName) || poolName.includes(cleanText);
+            });
+            
+            return found ? found.image : null;
+        }
+
         function startBulkRaffleLoop() {
             if(state.isRaffleRunning) return;
             const drawCount = parseInt(document.getElementById('raffle-draw-count').value) || 1;
@@ -1547,11 +1568,19 @@
 
                 window.updateRaffleUserList();
 
+                // Find Image for Raffle Card
+                const imgUrl = findRewardImage(rewardName);
+                let imgHTML = '';
+                if(imgUrl) {
+                    imgHTML = `<img src="${imgUrl}" class="w-16 h-16 object-contain rounded-md border border-orange-500/30 bg-black/40">`;
+                }
+
                 const grid = document.getElementById('raffle-results-grid');
                 const cardHTML = `
                     <div class="raffle-luxury-card">
                         <div class="shimmer-layer"></div>
                         <div class="raffle-rank-badge">${winnersFound}</div>
+                        ${imgHTML}
                         <div class="raffle-info">
                             <h4>TALİHLİ KAZANAN</h4>
                             <div class="winner-name">${winner.name}</div>
@@ -1640,14 +1669,29 @@
 
         function finishMirrorRound() { 
             const total = state.mirrorCurrentTotal; 
-            const reward = state.config.mirrorRewardsMap[total] || "Ödül Yok"; 
+            const rewardText = state.config.mirrorRewardsMap[total] || "Ödül Yok"; 
             document.querySelectorAll('.mirror-card').forEach(c => c.classList.add('flipped'));
             document.querySelectorAll('.pyramid-item').forEach(i => i.classList.remove('highlight')); 
             const highlightEl = document.getElementById(`py-item-${total}`); 
             if(highlightEl) highlightEl.classList.add('highlight'); 
-            document.getElementById('mirror-reward-text').innerText = reward; 
+            
+            // --- IMAGE LOOKUP FOR MIRROR ---
+            const imgUrl = findRewardImage(rewardText);
+            const rewardDisplayEl = document.getElementById('mirror-reward-text');
+            
+            if(imgUrl) {
+                rewardDisplayEl.innerHTML = `
+                    <div class="flex flex-col items-center">
+                        <img src="${imgUrl}" class="w-24 h-24 object-contain mb-2 drop-shadow-[0_0_10px_rgba(255,255,255,0.3)]">
+                        <span>${rewardText}</span>
+                    </div>
+                `;
+            } else {
+                rewardDisplayEl.innerText = rewardText; 
+            }
+            
             document.getElementById('mirror-result-announcement').classList.remove('opacity-0', 'translate-y-4'); 
-            saveToArchive(state.mirrorWinner.name, "AYNA", `${total} Puan`, reward, state.mirrorWinner.race); 
+            saveToArchive(state.mirrorWinner.name, "AYNA", `${total} Puan`, rewardText, state.mirrorWinner.race); 
             
             if(window.batchUpdateParticipation) window.batchUpdateParticipation(state.mirrorUsers);
 
@@ -2079,5 +2123,3 @@
     </script>
 </body>
 </html>
-
-
