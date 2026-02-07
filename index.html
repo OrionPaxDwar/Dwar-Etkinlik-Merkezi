@@ -584,8 +584,12 @@
                      };
                      if (u.race) { updateData.race = u.race; }
 
-                     // SADAKAT PUANI: Kazanan DEĞİLSE +2 Puan
-                     if (!winnerIds.includes(u.id)) {
+                     // SADAKAT PUANI MANTIĞI (YENİ)
+                     if (winnerIds.includes(u.id)) {
+                         // KAZANAN İÇİN PUAN SIFIRLANIR
+                         updateData.loyaltyPoints = 0;
+                     } else {
+                         // KAZANAMAYAN İÇİN +2 PUAN
                          updateData.loyaltyPoints = increment(2);
                      }
 
@@ -599,12 +603,8 @@
             };
 
             // Eski batchUpdate fonksiyonu yerine artık distributeLoyaltyPoints kullanacağız.
-            // Geriye uyumluluk için, eğer kazanan yoksa (örn: ticket başlangıcı) boş winner array ile çağrılabilir
-            // ama oyun sonu mantığına bunu entegre etmek en doğrusu.
             window.batchUpdateParticipation = async (userList) => {
-               // Bu fonksiyon artık sadece oyun SONUNDA distributeLoyaltyPoints olarak çağrılmalı.
-               // Ancak oyun başında sadece katılım sayısını artırmak istersek logic karışabilir.
-               // Bu yüzden oyun bitiminde hepsini tek seferde yapıyoruz.
+               // Deprecated
             };
 
             window.deleteStat = async (statId, e) => {
@@ -622,7 +622,7 @@
             };
 
             window.clearFirestoreCollection = async (gameType) => {
-                 if (!confirm(`${gameType.toUpperCase()} için kayıtlı kullanıcı listesini silmek istediğinize emin misiniz?`)) return;
+                 // Bu fonksiyon artık doğrudan butonla çağrılmayacak, finishGameSession üzerinden gelecek
                  if (!activeGameDetails) return;
                  const currentRound = activeGameDetails.round;
                  const entriesRef = collection(db, 'artifacts', appId, 'public', 'data', 'entries');
@@ -631,8 +631,35 @@
                  const batch = writeBatch(db);
                  snapshot.forEach((doc) => { batch.delete(doc.ref); });
                  await batch.commit();
-                 alert("Liste veritabanından temizlendi.");
             };
+
+            window.finishGameSession = async (gameType) => {
+                 if (!confirm("Tur tamamlanacak ve katılımcı listesi temizlenecek. Onaylıyor musunuz?")) return;
+                 await window.clearFirestoreCollection(gameType);
+                 
+                 // Local UI Reset
+                 if(gameType === 'game') { nextRound(); }
+                 else if (gameType === 'mirror') { resetMirrorRound(); }
+                 else if (gameType === 'wheel') { 
+                     state.wheelWinner = null; 
+                     document.getElementById('wheel-winner-banner').classList.add('opacity-0'); 
+                 }
+                 else if (gameType === 'lucky') {
+                     state.luckyWinnersIds = [];
+                     document.getElementById('lucky-result-panel').classList.add('opacity-0');
+                 }
+                 else if (gameType === 'dice') {
+                     state.diceWinnersIds = [];
+                     document.getElementById('dice-result-panel').classList.add('opacity-0');
+                     document.getElementById('dice-total-display').classList.add('opacity-0');
+                 }
+                 else if (gameType === 'ticket') {
+                     state.ticketWinner = null;
+                     document.getElementById('ticket-winner-area').classList.add('opacity-0');
+                 }
+
+                 alert("Çekiliş tamamlandı ve liste temizlendi!");
+            }
 
             window.fullSystemReset = async () => {
                  window.state.users = []; window.state.eliminatedUsers = [];
@@ -721,9 +748,9 @@
                     <button id="start-btn" onclick="toggleJoin(true)" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-black py-3 rounded-lg transition uppercase text-[10px]">KATILIMI AÇ</button>
                     <button id="stop-btn" onclick="toggleJoin(false)" class="hidden w-full bg-rose-600 hover:bg-rose-500 text-white font-black py-3 rounded-lg transition uppercase text-[10px]">KATILIMI KAPAT</button>
                     
-                    <button onclick="window.clearFirestoreCollection('game')" class="w-full bg-slate-700 hover:bg-rose-900 text-slate-400 hover:text-white font-black py-3 rounded-lg transition uppercase border border-white/10 text-[10px]">LİSTEYİ TEMİZLE</button>
+                    <button id="raffle-btn" onclick="startRaffle()" class="w-full bg-sky-500 hover:bg-sky-400 text-slate-900 font-bold py-4 rounded-xl transition uppercase text-xs mt-2">OYUNCU SEÇ</button>
 
-                    <button id="raffle-btn" onclick="startRaffle()" class="w-full bg-sky-500 hover:bg-sky-400 text-slate-900 font-bold py-4 rounded-xl transition uppercase text-xs mt-2">OYUNCU SEÇ (AĞIRLIKLI)</button>
+                    <button onclick="window.finishGameSession('game')" class="w-full bg-rose-600 hover:bg-rose-500 text-white font-black py-3 rounded-lg transition uppercase border border-white/10 text-[10px] mt-2 shadow-[0_0_15px_rgba(225,29,72,0.4)]">ÇEKİLİŞİ TAMAMLA & LİSTEYİ SİL</button>
                 </div>
             </aside>
             <section class="lg:col-span-9 glass-panel rounded-2xl p-4 flex flex-col relative overflow-hidden">
@@ -733,7 +760,7 @@
                 </div>
                 <div id="box-grid" class="flex-1 overflow-y-auto pr-1 custom-scrollbar"></div>
                 <div id="post-box-controls" class="absolute bottom-10 left-0 right-0 flex justify-center opacity-0 pointer-events-none transition-all">
-                    <button onclick="nextRound()" class="bg-emerald-500 text-slate-900 px-12 py-4 rounded-full font-black uppercase text-sm">TAMAMLA</button>
+                    <button onclick="nextRound()" class="bg-emerald-500 text-slate-900 px-12 py-4 rounded-full font-black uppercase text-sm">SONRAKİ TUR</button>
                 </div>
             </section>
         </main>
@@ -749,8 +776,8 @@
                 <div class="mt-4 pt-4 border-t border-white/5 space-y-2">
                     <button id="mirror-start-btn" onclick="toggleMirrorJoin(true)" class="w-full bg-purple-600 text-white font-black py-3 rounded-lg transition uppercase text-[10px]">KATILIMI AÇ</button>
                     <button id="mirror-stop-btn" onclick="toggleMirrorJoin(false)" class="hidden w-full bg-rose-600 text-white font-black py-3 rounded-lg transition uppercase text-[10px]">KATILIMI KAPAT</button>
-                    <button onclick="window.clearFirestoreCollection('mirror')" class="w-full bg-slate-700 hover:bg-rose-900 text-slate-400 hover:text-white font-black py-3 rounded-lg transition uppercase border border-white/10 text-[10px]">LİSTEYİ TEMİZLE</button>
                     <button id="mirror-raffle-btn" onclick="startMirrorRaffle()" class="w-full bg-purple-500 text-white font-bold py-4 rounded-xl transition uppercase text-xs mt-2">OYUNCU SEÇ</button>
+                    <button onclick="window.finishGameSession('mirror')" class="w-full bg-rose-600 hover:bg-rose-500 text-white font-black py-3 rounded-lg transition uppercase border border-white/10 text-[10px] mt-2 shadow-[0_0_15px_rgba(225,29,72,0.4)]">ÇEKİLİŞİ TAMAMLA & LİSTEYİ SİL</button>
                 </div>
             </aside>
             <section class="lg:col-span-9 glass-panel rounded-2xl p-6 flex flex-col overflow-hidden relative">
@@ -791,8 +818,8 @@
                 <div class="mt-4 pt-4 border-t border-white/5 space-y-2">
                     <button id="ticket-start-btn" onclick="toggleTicketJoin(true)" class="w-full bg-amber-600 text-slate-900 font-black py-3 rounded-lg transition uppercase text-[10px]">KATILIMI AÇ</button>
                     <button id="ticket-stop-btn" onclick="toggleTicketJoin(false)" class="hidden w-full bg-rose-600 text-white font-black py-3 rounded-lg transition uppercase text-[10px]">KATILIMI KAPAT</button>
-                    <button onclick="window.clearFirestoreCollection('ticket')" class="w-full bg-slate-700/50 hover:bg-rose-900/50 text-slate-400 hover:text-rose-400 font-black py-3 rounded-lg transition uppercase border border-white/5 text-[10px]">LİSTEYİ TEMİZLE</button>
                     <button id="draw-ticket-btn" onclick="startTicketDraw()" class="w-full bg-amber-500 hover:bg-amber-400 text-slate-900 font-bold py-4 rounded-xl transition uppercase text-xs mt-2 shadow-[0_0_20px_rgba(245,158,11,0.3)]">ÇEKİLİŞİ BAŞLAT</button>
+                    <button onclick="window.finishGameSession('ticket')" class="w-full bg-rose-600 hover:bg-rose-500 text-white font-black py-3 rounded-lg transition uppercase border border-white/10 text-[10px] mt-2 shadow-[0_0_15px_rgba(225,29,72,0.4)]">ÇEKİLİŞİ TAMAMLA & LİSTEYİ SİL</button>
                 </div>
             </aside>
             <section class="lg:col-span-9 glass-panel rounded-2xl p-6 flex flex-col items-center justify-center relative overflow-hidden bg-gradient-to-br from-slate-900 to-amber-950/30">
@@ -820,8 +847,8 @@
                 <div class="mt-4 pt-4 border-t border-white/5 space-y-2">
                     <button id="raffle-start-btn" onclick="toggleRaffleJoin(true)" class="w-full bg-orange-600 text-white font-black py-3 rounded-lg transition uppercase text-[10px]">KATILIMI AÇ</button>
                     <button id="raffle-stop-btn" onclick="toggleRaffleJoin(false)" class="hidden w-full bg-rose-600 text-white font-black py-3 rounded-lg transition uppercase text-[10px]">KATILIMI KAPAT</button>
-                    <button onclick="window.clearFirestoreCollection('raffle')" class="w-full bg-slate-700/50 hover:bg-rose-900/50 text-slate-400 hover:text-rose-400 font-black py-3 rounded-lg transition uppercase border border-white/5 text-[10px]">LİSTEYİ TEMİZLE</button>
                     <button onclick="openBulkModal()" class="w-full bg-slate-700 hover:bg-slate-600 text-white text-[10px] font-black py-3 rounded-lg transition uppercase flex items-center justify-center gap-2 mt-2">MANUEL EKLE</button>
+                    <button onclick="window.finishGameSession('raffle')" class="w-full bg-rose-600 hover:bg-rose-500 text-white font-black py-3 rounded-lg transition uppercase border border-white/10 text-[10px] mt-2 shadow-[0_0_15px_rgba(225,29,72,0.4)]">ÇEKİLİŞİ TAMAMLA & LİSTEYİ SİL</button>
                 </div>
             </aside>
             <section class="lg:col-span-9 glass-panel rounded-2xl p-6 flex flex-col relative overflow-hidden">
@@ -843,8 +870,8 @@
                 <div class="mt-4 pt-4 border-t border-white/5 space-y-2">
                     <button id="wheel-start-btn" onclick="toggleWheelJoin(true)" class="w-full bg-emerald-600 text-[10px] font-black py-3 rounded-lg transition uppercase">KATILIMI AÇ</button>
                     <button id="wheel-stop-btn" onclick="toggleWheelJoin(false)" class="hidden w-full bg-rose-600 text-white text-[10px] font-black py-3 rounded-lg transition uppercase">KATILIMI KAPAT</button>
-                    <button onclick="window.clearFirestoreCollection('wheel')" class="w-full bg-slate-700 hover:bg-rose-900 text-slate-400 hover:text-white font-black py-3 rounded-lg transition uppercase border border-white/10 text-[10px]">LİSTEYİ TEMİZLE</button>
                     <button id="wheel-raffle-btn" onclick="startWheelRaffle()" class="w-full bg-emerald-500 text-slate-900 font-bold py-4 rounded-xl transition uppercase text-xs mt-2">OYUNCU SEÇ</button>
+                    <button onclick="window.finishGameSession('wheel')" class="w-full bg-rose-600 hover:bg-rose-500 text-white font-black py-3 rounded-lg transition uppercase border border-white/10 text-[10px] mt-2 shadow-[0_0_15px_rgba(225,29,72,0.4)]">ÇEKİLİŞİ TAMAMLA & LİSTEYİ SİL</button>
                 </div>
             </aside>
             <section class="lg:col-span-9 glass-panel rounded-2xl p-6 flex flex-col items-center justify-center relative overflow-hidden">
@@ -868,8 +895,8 @@
                 <div class="mt-4 pt-4 border-t border-white/5 space-y-2">
                     <button id="lucky-start-btn" onclick="toggleLuckyJoin(true)" class="w-full bg-yellow-600 text-slate-900 font-black py-3 rounded-lg transition uppercase text-[10px]">KATILIMI BAŞLAT</button>
                     <button id="lucky-stop-btn" onclick="toggleLuckyJoin(false)" class="hidden w-full bg-rose-600 text-white font-black py-3 rounded-lg transition uppercase text-[10px]">KATILIMI KAPAT</button>
-                    <button onclick="window.clearFirestoreCollection('lucky')" class="w-full bg-slate-700 hover:bg-rose-900 text-slate-400 hover:text-white font-black py-3 rounded-lg transition uppercase border border-white/10 text-[10px]">LİSTEYİ TEMİZLE</button>
                     <button id="roll-lucky-btn" onclick="rollLuckyBalls()" class="w-full bg-yellow-400 text-slate-900 font-bold py-4 rounded-xl transition uppercase text-xs mt-2">TOPLARI ÇEVİR!</button>
+                    <button onclick="window.finishGameSession('lucky')" class="w-full bg-rose-600 hover:bg-rose-500 text-white font-black py-3 rounded-lg transition uppercase border border-white/10 text-[10px] mt-2 shadow-[0_0_15px_rgba(225,29,72,0.4)]">ÇEKİLİŞİ TAMAMLA & LİSTEYİ SİL</button>
                 </div>
             </aside>
             <section class="lg:col-span-9 glass-panel rounded-2xl p-6 flex flex-col items-center justify-center relative overflow-hidden">
@@ -892,8 +919,8 @@
                 <div class="mt-4 pt-4 border-t border-white/5 space-y-2">
                     <button id="dice-start-btn" onclick="toggleDiceJoin(true)" class="w-full bg-indigo-600 text-white font-black py-3 rounded-lg transition uppercase text-[10px]">KATILIMI BAŞLAT</button>
                     <button id="dice-stop-btn" onclick="toggleDiceJoin(false)" class="hidden w-full bg-rose-600 text-white font-black py-3 rounded-lg transition uppercase text-[10px]">KATILIMI KAPAT</button>
-                    <button onclick="window.clearFirestoreCollection('dice')" class="w-full bg-slate-700 hover:bg-rose-900 text-slate-400 hover:text-white font-black py-3 rounded-lg transition uppercase border border-white/10 text-[10px]">LİSTEYİ TEMİZLE</button>
                     <button id="roll-dice-btn" onclick="rollDice()" class="w-full bg-indigo-500 text-white font-bold py-4 rounded-xl transition uppercase text-xs mt-2">ZARLARI AT!</button>
+                    <button onclick="window.finishGameSession('dice')" class="w-full bg-rose-600 hover:bg-rose-500 text-white font-black py-3 rounded-lg transition uppercase border border-white/10 text-[10px] mt-2 shadow-[0_0_15px_rgba(225,29,72,0.4)]">ÇEKİLİŞİ TAMAMLA & LİSTEYİ SİL</button>
                 </div>
             </aside>
             <section class="lg:col-span-9 glass-panel rounded-2xl p-6 flex flex-col items-center justify-center relative overflow-hidden">
@@ -1409,9 +1436,8 @@
             dice: {
                 title: "ZAR OYUNU KURALLARI",
                 text: `<p>1. Oyuncular 5 zarın toplamının kaç geleceğini tahmin eder (Min: 5, Max: 30).</p>
-                       <p>2. "/zar [tahmin]" komutu ile katılım sağlanır.</p>
-                       <p>3. 5 zar atılır ve gelen rakamlar toplanır.</p>
-                       <p>4. Toplam sonucu tam bilen oyuncular büyük ödülü eşit olarak paylaşır.</p>`
+                       <p>2. 5 zar atılır ve gelen rakamlar toplanır.</p>
+                       <p>3. Toplam sonucu tam bilen oyuncular büyük ödülü eşit olarak paylaşır.</p>`
             },
             ticket: {
                 title: "BİLET OYUNU KURALLARI",
@@ -1553,7 +1579,6 @@
                 else if (pts >= 50) weight += 5;   // 50-99: +5%
 
                 // Add user to pool 'weight' times (Simple Weighted Random)
-                // For better performance with large numbers, we use cumulative weight logic
                 weightedPool.push({ user: u, weight: weight });
             });
 
@@ -1695,7 +1720,7 @@
             document.getElementById('start-raffle-btn').classList.remove('opacity-50', 'cursor-not-allowed');
             document.getElementById('raffle-status-msg').classList.add('opacity-0');
             
-            // Distribute points (Losers +2)
+            // Distribute points (Losers +2, Winners Reset)
             if(window.distributeLoyaltyPoints) window.distributeLoyaltyPoints(state.raffleUsers, winnersIds);
             
             alert("Çekiliş tamamlandı!");
@@ -1903,15 +1928,7 @@
             document.getElementById(`reward-text-${n}`).innerHTML = contentHTML; 
             document.getElementById('post-box-controls').classList.remove('opacity-0', 'pointer-events-none'); 
             
-            // Distribute Points: Winner gets nothing, losers get +2. 
-            // Note: Since this game continues with multiple rounds, "losers" are everyone NOT yet selected. 
-            // Or technically, everyone who didn't play this round. 
-            // In box game context, usually we distribute points at the VERY END or round by round.
-            // Let's assume round by round distribution to unselected players is too much. 
-            // Instead, we will treat the "Selected Player" as the Winner of this round.
-            // Everyone else (including eliminated previously?) gets nothing? No, everyone else in list gets +2?
-            // To be safe and fair: Only people currently in the list who were NOT selected this round get points? 
-            // Or simply update everyone in the list except the current winner.
+            // Distribute Points: Winner RESET, losers +2
             if(window.distributeLoyaltyPoints) window.distributeLoyaltyPoints(state.users, [state.currentWinner.id]);
             
             saveToArchive(state.currentWinner.name, "KUTU", `#${n}`, rewardText, state.currentWinner.race); 
@@ -2120,7 +2137,7 @@
                 groupLabel = "1 BİLEN";
             }
 
-            // Distribute Points to non-winners
+            // Distribute Points
             const winningIds = winningGroup.map(u => u.id);
             if(window.distributeLoyaltyPoints) window.distributeLoyaltyPoints(state.luckyUsers, winningIds);
 
@@ -2155,7 +2172,7 @@
             document.getElementById('dice-stop-btn').classList.toggle('hidden', !e);
             if(window.updateFirestoreGameState) window.updateFirestoreGameState('dice', e ? 'open' : 'closed');
         }
-        window.updateDiceUserList = function() { document.getElementById('dice-user-count').innerText = state.diceUsers.length; const list = document.getElementById('dice-user-list'); list.innerHTML = ''; state.diceUsers.forEach(u => { const isW = state.diceWinnersIds.includes(u.id); list.innerHTML += `<div class="p-2 bg-indigo-900/10 border border-indigo-500/10 rounded-lg flex justify-between items-center text-[20px] font-bold ${isW?'user-winner ring-1 ring-indigo-400':''}"><span>${u.name}${getLoyaltyBadgeHTML(u.loyalty)}</span><span class="text-indigo-400 font-mono tracking-widest">/zar ${u.target}</span></div>`; }); }
+        window.updateDiceUserList = function() { document.getElementById('dice-user-count').innerText = state.diceUsers.length; const list = document.getElementById('dice-user-list'); list.innerHTML = ''; state.diceUsers.forEach(u => { const isW = state.diceWinnersIds.includes(u.id); list.innerHTML += `<div class="p-2 bg-indigo-900/10 border border-indigo-500/10 rounded-lg flex justify-between items-center text-[20px] font-bold ${isW?'user-winner ring-1 ring-indigo-400':''}"><span>${u.name}${getLoyaltyBadgeHTML(u.loyalty)}</span><span class="text-indigo-400 font-mono tracking-widest">${u.target}</span></div>`; }); }
         
         function renderDiceDots(el, num) { if(!el) return; el.innerHTML = ''; const p = { 1:[4], 2:[0,8], 3:[0,4,8], 4:[0,2,6,8], 5:[0,2,4,6,8], 6:[0,2,3,5,6,8] }; const dots = p[num] || []; for(let i=0; i<9; i++) { const d = document.createElement('div'); if(dots.includes(i)) d.className = 'dice-dot'; el.appendChild(d); } }
         function rollDice() { if(state.isDiceRolling || state.diceUsers.length === 0) return; state.isDiceRolling = true; document.getElementById('dice-result-panel').classList.add('opacity-0', 'translate-y-4'); const res = [1,2,3,4,5].map(() => Math.floor(Math.random()*6)+1); const sum = res.reduce((a,b)=>a+b, 0); const diceEls = [1,2,3,4,5].map(i => document.getElementById(`dice-${i}`)); diceEls.forEach(d => d.classList.add('dice-rolling')); let fin = 0; diceEls.forEach((d, i) => { let cyc = 0; const max = 15 + (i * 8); const int = setInterval(() => { renderDiceDots(d, Math.floor(Math.random()*6)+1); if(cyc++ >= max) { clearInterval(int); renderDiceDots(d, res[i]); d.classList.remove('dice-rolling'); fin++; if(fin === 5) { state.diceSum = sum; processDiceWinners(); } } }, 80); }); }
