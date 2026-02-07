@@ -285,7 +285,7 @@
 
         .stats-table-row {
             display: grid;
-            grid-template-columns: 50px 2fr 100px 1fr 1fr 50px;
+            grid-template-columns: 50px 2fr 100px 100px 1fr 1fr 50px; /* Sütun yapısı değişti */
             gap: 10px;
             padding: 12px;
             border-bottom: 1px solid rgba(255,255,255,0.05);
@@ -333,6 +333,20 @@
         .filter-btn.active { background: #38bdf8; color: #0f172a; border-color: #38bdf8; }
         
         .hidden { display: none !important; }
+
+        /* Loyalty Badge Style */
+        .loyalty-badge {
+            font-size: 9px;
+            background: linear-gradient(45deg, #1e293b, #334155);
+            border: 1px solid rgba(255,255,255,0.1);
+            padding: 2px 6px;
+            border-radius: 4px;
+            color: #94a3b8;
+            margin-left: 6px;
+            vertical-align: middle;
+            font-weight: bold;
+        }
+        .loyalty-boost { color: #facc15; border-color: #facc15; }
     </style>
 </head>
 <body>
@@ -491,32 +505,37 @@
                     snapshot.forEach((doc) => {
                         const data = doc.data();
                         const normalizedNick = data.nick.trim().toLocaleLowerCase('tr');
+                        
+                        // Sadakat puanını mevcut state'den al (anlık güncelleme için)
+                        const stat = window.state.allStats.find(s => s.id === normalizedNick);
+                        const loyalty = stat ? (stat.loyaltyPoints || 0) : 0;
+                        
                         if (!seenNicks.has(normalizedNick)) {
                             seenNicks.add(normalizedNick);
-                            entries.push({ id: doc.id, ...data });
+                            entries.push({ id: doc.id, ...data, loyaltyPoints: loyalty });
                         }
                     });
 
                     if (gameType === 'game') { 
-                        window.state.users = entries.map(e => ({ id: e.id, name: e.nick, race: e.race }));
+                        window.state.users = entries.map(e => ({ id: e.id, name: e.nick, race: e.race, loyalty: e.loyaltyPoints }));
                         window.updateUserList();
                     } else if (gameType === 'wheel') {
-                        window.state.wheelUsers = entries.map(e => ({ id: e.id, name: e.nick, race: e.race }));
+                        window.state.wheelUsers = entries.map(e => ({ id: e.id, name: e.nick, race: e.race, loyalty: e.loyaltyPoints }));
                         window.updateWheelUserList();
                     } else if (gameType === 'lucky') {
-                        window.state.luckyUsers = entries.map(e => ({ id: e.id, name: e.nick, race: e.race, numbers: e.prediction ? e.prediction.split('-').map(Number) : [0,0,0] }));
+                        window.state.luckyUsers = entries.map(e => ({ id: e.id, name: e.nick, race: e.race, numbers: e.prediction ? e.prediction.split('-').map(Number) : [0,0,0], loyalty: e.loyaltyPoints }));
                         window.updateLuckyUserList();
                     } else if (gameType === 'dice') {
-                        window.state.diceUsers = entries.map(e => ({ id: e.id, name: e.nick, race: e.race, target: parseInt(e.prediction) || 0 }));
+                        window.state.diceUsers = entries.map(e => ({ id: e.id, name: e.nick, race: e.race, target: parseInt(e.prediction) || 0, loyalty: e.loyaltyPoints }));
                         window.updateDiceUserList();
                     } else if (gameType === 'mirror') {
-                        window.state.mirrorUsers = entries.map(e => ({ id: e.id, name: e.nick, race: e.race }));
+                        window.state.mirrorUsers = entries.map(e => ({ id: e.id, name: e.nick, race: e.race, loyalty: e.loyaltyPoints }));
                         window.updateMirrorUserList();
                     } else if (gameType === 'raffle') {
-                        window.state.raffleUsers = entries.map(e => ({ id: e.id, name: e.nick, race: e.race }));
+                        window.state.raffleUsers = entries.map(e => ({ id: e.id, name: e.nick, race: e.race, loyalty: e.loyaltyPoints }));
                         window.updateRaffleUserList();
                     } else if (gameType === 'ticket') {
-                        window.state.ticketUsers = entries.map(e => ({ id: e.id, name: e.nick, race: e.race, ticketNumber: e.prediction || Math.floor(10000 + Math.random() * 90000).toString() }));
+                        window.state.ticketUsers = entries.map(e => ({ id: e.id, name: e.nick, race: e.race, ticketNumber: e.prediction || Math.floor(10000 + Math.random() * 90000).toString(), loyalty: e.loyaltyPoints }));
                         window.updateTicketUserList();
                     }
                 });
@@ -542,23 +561,50 @@
                 if (isWin) {
                     dataToUpdate.winCount = increment(1);
                     dataToUpdate.history = arrayUnion({ game: winDetails.game, reward: winDetails.reward, detail: winDetails.detail || '', date: new Date().toISOString() });
+                    // Kazanan puan almaz (mevcut mantık: ödül alıyor). Puan sıfırlamıyoruz, sadece eklemiyoruz.
                 }
                 try { await setDoc(userRef, dataToUpdate, { merge: true }); } catch(e) { console.error("Stats update error:", e); }
             };
 
+            // Toplu katılım ve SADAKAT PUANI dağıtımı
+            window.distributeLoyaltyPoints = async (allParticipants, winnerIds) => {
+                 if(!currentUser || !allParticipants || allParticipants.length === 0) return;
+                 const batch = writeBatch(db);
+                 let updateCount = 0;
+
+                 allParticipants.forEach(u => {
+                     const normalizedNick = (u.name || u.nick).trim().toLocaleLowerCase('tr');
+                     const userRef = doc(db, 'artifacts', appId, 'public', 'data', 'player_stats', normalizedNick);
+                     
+                     // Temel Katılım Güncellemesi
+                     const updateData = { 
+                         nick: u.name || u.nick, 
+                         participationCount: increment(1), 
+                         lastSeen: new Date().toISOString() 
+                     };
+                     if (u.race) { updateData.race = u.race; }
+
+                     // SADAKAT PUANI: Kazanan DEĞİLSE +2 Puan
+                     if (!winnerIds.includes(u.id)) {
+                         updateData.loyaltyPoints = increment(2);
+                     }
+
+                     batch.set(userRef, updateData, { merge: true });
+                     updateCount++;
+                 });
+                 
+                 if(updateCount > 0) {
+                    try { await batch.commit(); } catch(e) { console.error("Loyalty update error:", e); }
+                 }
+            };
+
+            // Eski batchUpdate fonksiyonu yerine artık distributeLoyaltyPoints kullanacağız.
+            // Geriye uyumluluk için, eğer kazanan yoksa (örn: ticket başlangıcı) boş winner array ile çağrılabilir
+            // ama oyun sonu mantığına bunu entegre etmek en doğrusu.
             window.batchUpdateParticipation = async (userList) => {
-                if(!currentUser || !userList || userList.length === 0) return;
-                const batch = writeBatch(db);
-                userList.forEach(u => {
-                    const nick = u.name || u.nick;
-                    const race = u.race || null; 
-                    const normalizedNick = nick.trim().toLocaleLowerCase('tr');
-                    const userRef = doc(db, 'artifacts', appId, 'public', 'data', 'player_stats', normalizedNick);
-                    const updateData = { nick: nick, participationCount: increment(1), lastSeen: new Date().toISOString() };
-                    if (race) { updateData.race = race; }
-                    batch.set(userRef, updateData, { merge: true });
-                });
-                try { await batch.commit(); } catch(e) { console.error("Batch participation error:", e); }
+               // Bu fonksiyon artık sadece oyun SONUNDA distributeLoyaltyPoints olarak çağrılmalı.
+               // Ancak oyun başında sadece katılım sayısını artırmak istersek logic karışabilir.
+               // Bu yüzden oyun bitiminde hepsini tek seferde yapıyoruz.
             };
 
             window.deleteStat = async (statId, e) => {
@@ -677,7 +723,7 @@
                     
                     <button onclick="window.clearFirestoreCollection('game')" class="w-full bg-slate-700 hover:bg-rose-900 text-slate-400 hover:text-white font-black py-3 rounded-lg transition uppercase border border-white/10 text-[10px]">LİSTEYİ TEMİZLE</button>
 
-                    <button id="raffle-btn" onclick="startRaffle()" class="w-full bg-sky-500 hover:bg-sky-400 text-slate-900 font-bold py-4 rounded-xl transition uppercase text-xs mt-2">OYUNCU SEÇ</button>
+                    <button id="raffle-btn" onclick="startRaffle()" class="w-full bg-sky-500 hover:bg-sky-400 text-slate-900 font-bold py-4 rounded-xl transition uppercase text-xs mt-2">OYUNCU SEÇ (AĞIRLIKLI)</button>
                 </div>
             </aside>
             <section class="lg:col-span-9 glass-panel rounded-2xl p-4 flex flex-col relative overflow-hidden">
@@ -903,6 +949,7 @@
                     <div class="text-center">IRK</div>
                     <div class="text-center">KATILIM</div>
                     <div class="text-center">KAZANMA</div>
+                    <div class="text-center text-yellow-400">SADAKAT P.</div>
                     <div class="text-center">SİL</div>
                 </div>
                 <div id="stats-list" class="flex-1 overflow-y-auto custom-scrollbar"></div>
@@ -1243,6 +1290,7 @@
             data.forEach((s, idx) => {
                 const wins = s.winCount || 0;
                 const parts = s.participationCount || 0;
+                const loyalty = s.loyaltyPoints || 0;
                 
                 // IRK BELİRLEME (Magron Ateş Simgesi)
                 let raceIcon = '<span class="text-slate-600 text-[10px]">-</span>';
@@ -1265,6 +1313,7 @@
                         <div class="text-center">${raceIcon}</div>
                         <div class="text-center text-slate-400 font-mono">${parts}</div>
                         <div class="text-center text-emerald-400 font-mono font-bold">${wins}</div>
+                        <div class="text-center text-yellow-500 font-mono font-bold">${loyalty}</div>
                         <div class="text-center">
                             <button onclick="window.deleteStat('${s.id}', event)" class="text-rose-500 hover:text-white hover:bg-rose-600 rounded p-1 transition">
                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
@@ -1490,6 +1539,45 @@
             if(tab === 'pool') window.renderRewardPool(); // Ensure render
         }
 
+        // --- HELPER: Loyalty Weighted Selection ---
+        function getWeightedWinner(users) {
+            let weightedPool = [];
+            users.forEach(u => {
+                const pts = u.loyalty || 0;
+                let weight = 100; // Base 100%
+
+                // 0-49 puan: +0%
+                if (pts >= 200) weight += 25;      // 200+ puan: +25%
+                else if (pts >= 150) weight += 15; // 150-199: +15%
+                else if (pts >= 100) weight += 10; // 100-149: +10%
+                else if (pts >= 50) weight += 5;   // 50-99: +5%
+
+                // Add user to pool 'weight' times (Simple Weighted Random)
+                // For better performance with large numbers, we use cumulative weight logic
+                weightedPool.push({ user: u, weight: weight });
+            });
+
+            let totalWeight = weightedPool.reduce((acc, curr) => acc + curr.weight, 0);
+            let random = Math.random() * totalWeight;
+            
+            for (let i = 0; i < weightedPool.length; i++) {
+                if (random < weightedPool[i].weight) {
+                    return weightedPool[i].user;
+                }
+                random -= weightedPool[i].weight;
+            }
+            return users[0]; // Fallback
+        }
+
+        // --- HELPER: Render Loyalty Badge ---
+        function getLoyaltyBadgeHTML(points) {
+            if(!points || points <= 0) return '';
+            let styleClass = 'loyalty-badge';
+            if(points >= 50) styleClass += ' loyalty-boost';
+            return `<span class="${styleClass}">${points} P</span>`;
+        }
+
+
         // --- NEW RAFFLE LOGIC ---
         function openBulkModal() { document.getElementById('bulk-modal').classList.add('active'); document.getElementById('bulk-input').focus(); }
         function closeBulkModal() { document.getElementById('bulk-modal').classList.remove('active'); }
@@ -1506,7 +1594,10 @@
             if(!raw.trim()) return closeBulkModal();
             const names = raw.split('\n').map(n => n.trim()).filter(n => n !== "");
             names.forEach(name => {
-                state.raffleUsers.push({ id: Date.now() + Math.random(), name: name });
+                // Bulk add'de puanı statlardan bulmaya çalış
+                const stat = window.state.allStats.find(s => s.nick.toLowerCase() === name.toLowerCase());
+                const pts = stat ? (stat.loyaltyPoints || 0) : 0;
+                state.raffleUsers.push({ id: Date.now() + Math.random(), name: name, loyalty: pts });
             });
             updateRaffleUserList();
             document.getElementById('bulk-input').value = "";
@@ -1519,7 +1610,7 @@
             list.innerHTML = '';
             state.raffleUsers.forEach(u => {
                 const isE = state.eliminatedRaffleUsers.includes(u.id);
-                list.innerHTML += `<div class="p-2 bg-slate-800 rounded-lg text-[20px] font-bold transition-opacity duration-1000 ${isE?'opacity-20 user-winner':''}">${u.name}</div>`;
+                list.innerHTML += `<div class="p-2 bg-slate-800 rounded-lg text-[20px] font-bold transition-opacity duration-1000 ${isE?'opacity-20 user-winner':''}">${u.name}${getLoyaltyBadgeHTML(u.loyalty)}</div>`;
             });
         }
 
@@ -1545,24 +1636,26 @@
             if(available.length === 0) return alert("Çekiliş yapacak uygun katılımcı kalmadı!");
             if(available.length < drawCount) return alert(`Yeterli katılımcı yok! (Mevcut: ${available.length}, İstenen: ${drawCount})`);
 
-            if(window.batchUpdateParticipation) window.batchUpdateParticipation(available);
-
             state.isRaffleRunning = true;
             document.getElementById('start-raffle-btn').classList.add('opacity-50', 'cursor-not-allowed');
             document.getElementById('raffle-status-msg').classList.remove('opacity-0');
             document.getElementById('raffle-results-grid').innerHTML = '';
 
             let winnersFound = 0;
+            let currentBatchWinners = [];
 
             function pickWinner() {
                 const currentPool = state.raffleUsers.filter(u => !state.eliminatedRaffleUsers.includes(u.id));
                 if(currentPool.length === 0 || winnersFound >= drawCount) {
-                    finishRaffle();
+                    finishRaffle(currentBatchWinners);
                     return;
                 }
 
-                const winner = currentPool[Math.floor(Math.random() * currentPool.length)];
+                // WEIGHTED SELECTION
+                const winner = getWeightedWinner(currentPool);
+                
                 state.eliminatedRaffleUsers.push(winner.id);
+                currentBatchWinners.push(winner.id);
                 winnersFound++;
                 saveToArchive(winner.name, "ÇEKİLİŞ", `${drawCount} Kişilik`, rewardName, winner.race);
 
@@ -1592,15 +1685,19 @@
                 `;
                 
                 grid.insertAdjacentHTML('beforeend', cardHTML);
-                if(winnersFound < drawCount) { setTimeout(pickWinner, 3000); } else { setTimeout(finishRaffle, 1000); }
+                if(winnersFound < drawCount) { setTimeout(pickWinner, 3000); } else { setTimeout(() => finishRaffle(currentBatchWinners), 1000); }
             }
             pickWinner();
         }
 
-        function finishRaffle() {
+        function finishRaffle(winnersIds) {
             state.isRaffleRunning = false;
             document.getElementById('start-raffle-btn').classList.remove('opacity-50', 'cursor-not-allowed');
             document.getElementById('raffle-status-msg').classList.add('opacity-0');
+            
+            // Distribute points (Losers +2)
+            if(window.distributeLoyaltyPoints) window.distributeLoyaltyPoints(state.raffleUsers, winnersIds);
+            
             alert("Çekiliş tamamlandı!");
         }
 
@@ -1611,7 +1708,7 @@
             document.getElementById('mirror-stop-btn').classList.toggle('hidden', !e);
             if(window.updateFirestoreGameState) window.updateFirestoreGameState('mirror', e ? 'open' : 'closed');
         }
-        window.updateMirrorUserList = function(activeId) { document.getElementById('mirror-user-count').innerText = state.mirrorUsers.length; const list = document.getElementById('mirror-user-list'); list.innerHTML = ''; state.mirrorUsers.forEach(u => { const isE = state.eliminatedMirrorUsers.includes(u.id); list.innerHTML += `<div class="p-2 bg-slate-800 rounded-lg text-[20px] font-bold ${isE?'opacity-30 user-winner':''} ${activeId===u.id?'ring-1 ring-purple-400':''}">${u.name}</div>`; }); }
+        window.updateMirrorUserList = function(activeId) { document.getElementById('mirror-user-count').innerText = state.mirrorUsers.length; const list = document.getElementById('mirror-user-list'); list.innerHTML = ''; state.mirrorUsers.forEach(u => { const isE = state.eliminatedMirrorUsers.includes(u.id); list.innerHTML += `<div class="p-2 bg-slate-800 rounded-lg text-[20px] font-bold ${isE?'opacity-30 user-winner':''} ${activeId===u.id?'ring-1 ring-purple-400':''}">${u.name}${getLoyaltyBadgeHTML(u.loyalty)}</div>`; }); }
         
         function createMirrorGrid() { 
             const grid = document.getElementById('mirror-grid'); grid.innerHTML = ''; 
@@ -1638,12 +1735,15 @@
             resetMirrorRound(); 
             let count = 0; 
             const int = setInterval(() => { 
+                // Visual shuffle
                 const p = av[Math.floor(Math.random()*av.length)]; 
                 window.updateMirrorUserList(p.id); 
                 if(count++ > 20) { 
                     clearInterval(int); 
-                    state.mirrorWinner = p; 
-                    document.getElementById('mirror-winner-name').innerText = p.name; 
+                    // WEIGHTED SELECTION
+                    const winner = getWeightedWinner(av);
+                    state.mirrorWinner = winner; 
+                    document.getElementById('mirror-winner-name').innerText = winner.name; 
                     document.getElementById('mirror-winner-display').classList.remove('opacity-0'); 
                     updateMirrorSelectionDisplay(); 
                 } 
@@ -1693,7 +1793,10 @@
             document.getElementById('mirror-result-announcement').classList.remove('opacity-0', 'translate-y-4'); 
             saveToArchive(state.mirrorWinner.name, "AYNA", `${total} Puan`, rewardText, state.mirrorWinner.race); 
             
-            if(window.batchUpdateParticipation) window.batchUpdateParticipation(state.mirrorUsers);
+            // Distribute Points (Winner gets nothing, losers get +2 logic applies to the SELECTION phase participants?)
+            // Mirror game is tricky because it picks ONE player to play. 
+            // We will distribute points to ALL participants in the list, excluding the current player who got to play.
+            if(window.distributeLoyaltyPoints) window.distributeLoyaltyPoints(state.mirrorUsers, [state.mirrorWinner.id]);
 
             state.eliminatedMirrorUsers.push(state.mirrorWinner.id); 
             window.updateMirrorUserList(); 
@@ -1722,17 +1825,19 @@
             const list = document.getElementById('ticket-user-list');
             list.innerHTML = '';
             state.ticketUsers.forEach(u => {
-                list.innerHTML += `<div class="p-2 bg-amber-900/20 border border-amber-500/20 rounded-lg flex justify-between items-center text-[20px] font-bold"><span>${u.name}</span><span class="font-mono text-amber-400 tracking-widest text-[20px]">${u.ticketNumber}</span></div>`;
+                list.innerHTML += `<div class="p-2 bg-amber-900/20 border border-amber-500/20 rounded-lg flex justify-between items-center text-[20px] font-bold"><span>${u.name}${getLoyaltyBadgeHTML(u.loyalty)}</span><span class="font-mono text-amber-400 tracking-widest text-[20px]">${u.ticketNumber}</span></div>`;
             });
         }
 
         function startTicketDraw() {
             if (state.ticketUsers.length === 0) return alert("Bilet alan oyuncu yok!");
-            if(window.batchUpdateParticipation) window.batchUpdateParticipation(state.ticketUsers);
-
+            // Ticket is pure luck (random number matching), not selection weight
             const winner = state.ticketUsers[Math.floor(Math.random() * state.ticketUsers.length)];
             state.ticketWinner = winner;
             const winningNumbers = winner.ticketNumber.split('');
+
+            // Distribute points to losers
+            if(window.distributeLoyaltyPoints) window.distributeLoyaltyPoints(state.ticketUsers, [winner.id]);
 
             document.getElementById('ticket-winner-area').classList.add('opacity-0', 'translate-y-10');
             document.getElementById('reveal-winner-btn').classList.add('hidden');
@@ -1774,7 +1879,7 @@
             list.innerHTML = ''; 
             state.users.forEach(u => { 
                 const isE = state.eliminatedUsers.includes(u.id); 
-                list.innerHTML += `<div class="p-2 bg-slate-800 rounded-lg text-[20px] font-bold ${isE?'opacity-30 user-winner':''} ${a===u.id?'ring-1 ring-sky-400':''}">${u.name}</div>`; 
+                list.innerHTML += `<div class="p-2 bg-slate-800 rounded-lg text-[20px] font-bold ${isE?'opacity-30 user-winner':''} ${a===u.id?'ring-1 ring-sky-400':''}">${u.name}${getLoyaltyBadgeHTML(u.loyalty)}</div>`; 
             }); 
         }
         
@@ -1798,13 +1903,39 @@
             document.getElementById(`reward-text-${n}`).innerHTML = contentHTML; 
             document.getElementById('post-box-controls').classList.remove('opacity-0', 'pointer-events-none'); 
             
-            if(window.batchUpdateParticipation) window.batchUpdateParticipation(state.users);
+            // Distribute Points: Winner gets nothing, losers get +2. 
+            // Note: Since this game continues with multiple rounds, "losers" are everyone NOT yet selected. 
+            // Or technically, everyone who didn't play this round. 
+            // In box game context, usually we distribute points at the VERY END or round by round.
+            // Let's assume round by round distribution to unselected players is too much. 
+            // Instead, we will treat the "Selected Player" as the Winner of this round.
+            // Everyone else (including eliminated previously?) gets nothing? No, everyone else in list gets +2?
+            // To be safe and fair: Only people currently in the list who were NOT selected this round get points? 
+            // Or simply update everyone in the list except the current winner.
+            if(window.distributeLoyaltyPoints) window.distributeLoyaltyPoints(state.users, [state.currentWinner.id]);
             
             saveToArchive(state.currentWinner.name, "KUTU", `#${n}`, rewardText, state.currentWinner.race); 
         }
 
         function nextRound() { state.currentWinner = null; state.isBoxOpened = false; document.getElementById('winner-banner').classList.add('opacity-0'); document.getElementById('post-box-controls').classList.add('opacity-0', 'pointer-events-none'); window.updateUserList(); }
-        async function startRaffle() { const av = state.users.filter(u => !state.eliminatedUsers.includes(u.id)); if(av.length===0) return; let count = 0; const int = setInterval(() => { const p = av[Math.floor(Math.random()*av.length)]; window.updateUserList(p.id); if(count++ > 20) { clearInterval(int); state.currentWinner = p; document.getElementById('winner-name').innerText = p.name; document.getElementById('winner-banner').classList.remove('opacity-0'); } }, 100); }
+        
+        async function startRaffle() { 
+            const av = state.users.filter(u => !state.eliminatedUsers.includes(u.id)); 
+            if(av.length===0) return; 
+            let count = 0; 
+            const int = setInterval(() => { 
+                const p = av[Math.floor(Math.random()*av.length)]; 
+                window.updateUserList(p.id); 
+                if(count++ > 20) { 
+                    clearInterval(int); 
+                    // WEIGHTED SELECTION
+                    const winner = getWeightedWinner(av);
+                    state.currentWinner = winner; 
+                    document.getElementById('winner-name').innerText = winner.name; 
+                    document.getElementById('winner-banner').classList.remove('opacity-0'); 
+                } 
+            }, 100); 
+        }
 
         // --- WHEEL LOGIC ---
         function toggleWheelJoin(e) { 
@@ -1813,9 +1944,27 @@
             document.getElementById('wheel-stop-btn').classList.toggle('hidden', !e);
             if(window.updateFirestoreGameState) window.updateFirestoreGameState('wheel', e ? 'open' : 'closed');
         }
-        window.updateWheelUserList = function(activeId) { document.getElementById('wheel-user-count').innerText = state.wheelUsers.length; const list = document.getElementById('wheel-user-list'); list.innerHTML = ''; state.wheelUsers.forEach(u => { const isE = state.eliminatedWheelUsers.includes(u.id); list.innerHTML += `<div class="p-2 bg-slate-800 rounded-lg text-[20px] font-bold ${isE?'opacity-30 user-winner':''} ${activeId===u.id?'ring-1 ring-emerald-400':''}">${u.name}</div>`; }); }
+        window.updateWheelUserList = function(activeId) { document.getElementById('wheel-user-count').innerText = state.wheelUsers.length; const list = document.getElementById('wheel-user-list'); list.innerHTML = ''; state.wheelUsers.forEach(u => { const isE = state.eliminatedWheelUsers.includes(u.id); list.innerHTML += `<div class="p-2 bg-slate-800 rounded-lg text-[20px] font-bold ${isE?'opacity-30 user-winner':''} ${activeId===u.id?'ring-1 ring-emerald-400':''}">${u.name}${getLoyaltyBadgeHTML(u.loyalty)}</div>`; }); }
         
-        async function startWheelRaffle() { const av = state.wheelUsers.filter(u => !state.eliminatedWheelUsers.includes(u.id)); if(av.length === 0) return; let count = 0; const int = setInterval(() => { const p = av[Math.floor(Math.random()*av.length)]; window.updateWheelUserList(p.id); if(count++ > 20) { clearInterval(int); state.wheelWinner = p; document.getElementById('wheel-winner-name').innerText = p.name; document.getElementById('wheel-winner-reward').classList.add('opacity-0'); document.getElementById('wheel-winner-banner').classList.remove('opacity-0'); } }, 100); }
+        async function startWheelRaffle() { 
+            const av = state.wheelUsers.filter(u => !state.eliminatedWheelUsers.includes(u.id)); 
+            if(av.length === 0) return; 
+            let count = 0; 
+            const int = setInterval(() => { 
+                const p = av[Math.floor(Math.random()*av.length)]; 
+                window.updateWheelUserList(p.id); 
+                if(count++ > 20) { 
+                    clearInterval(int); 
+                    // WEIGHTED SELECTION
+                    const winner = getWeightedWinner(av);
+                    state.wheelWinner = winner; 
+                    document.getElementById('wheel-winner-name').innerText = winner.name; 
+                    document.getElementById('wheel-winner-reward').classList.add('opacity-0'); 
+                    document.getElementById('wheel-winner-banner').classList.remove('opacity-0'); 
+                } 
+            }, 100); 
+        }
+        
         function drawWheel() { 
             const canvas = document.getElementById('wheel-canvas'); 
             if(!canvas) return; 
@@ -1861,8 +2010,6 @@
             if(state.isWheelSpinning || !state.wheelWinner) return; 
             if(state.config.wheelRewards.length === 0) return alert("Çarkta dağıtılacak ödül kalmadı!");
 
-            if(window.batchUpdateParticipation) window.batchUpdateParticipation(state.wheelUsers);
-
             state.isWheelSpinning = true; 
             const spinRounds = 10 + Math.random() * 5; 
             const targetAngle = state.wheelAngle + (Math.PI * 2 * spinRounds); 
@@ -1899,11 +2046,12 @@
                     const rewardEl = document.getElementById('wheel-winner-reward'); 
                     
                     if (rewardImg) {
+                        // FIX: Image size reduced from w-32 to w-20 and margin adjusted to prevent overlap
                         rewardEl.innerHTML = `
                             <div class="flex flex-col items-center animate-bounce">
                                 <span class="text-[10px] text-slate-400 mb-1">KAZANILAN ÖDÜL</span>
-                                <img src="${rewardImg}" class="w-32 h-32 object-contain mb-2 rounded-xl shadow-[0_0_20px_rgba(250,204,21,0.3)] bg-slate-900/50 border border-yellow-500/30">
-                                <span class="text-3xl text-yellow-400 drop-shadow-md">${rewardText}</span>
+                                <img src="${rewardImg}" class="w-20 h-20 object-contain mb-2 rounded-xl shadow-[0_0_20px_rgba(250,204,21,0.3)] bg-slate-900/50 border border-yellow-500/30">
+                                <span class="text-3xl text-yellow-400 drop-shadow-md z-10 relative">${rewardText}</span>
                             </div>
                         `;
                     } else {
@@ -1920,6 +2068,9 @@
                     saveToArchive(state.wheelWinner.name, "ÇARK", "Ödül", rewardText, state.wheelWinner.race); 
                     state.eliminatedWheelUsers.push(state.wheelWinner.id); 
                     
+                    // Distribute Points
+                    if(window.distributeLoyaltyPoints) window.distributeLoyaltyPoints(state.wheelUsers, [state.wheelWinner.id]);
+
                     setTimeout(() => {
                         state.config.wheelRewards.splice(index, 1);
                         drawWheel(); 
@@ -1939,7 +2090,7 @@
             document.getElementById('lucky-stop-btn').classList.toggle('hidden', !e);
             if(window.updateFirestoreGameState) window.updateFirestoreGameState('lucky', e ? 'open' : 'closed');
         }
-        window.updateLuckyUserList = function() { document.getElementById('lucky-user-count').innerText = state.luckyUsers.length; const list = document.getElementById('lucky-user-list'); list.innerHTML = ''; state.luckyUsers.forEach(u => { const isW = state.luckyWinnersIds.includes(u.id); list.innerHTML += `<div class="p-2 bg-yellow-900/10 border border-yellow-500/10 rounded-lg flex justify-between items-center text-[20px] font-bold ${isW?'user-winner ring-1 ring-yellow-400':''}"><span>${u.name}</span><span class="text-yellow-500 font-mono tracking-widest">${u.numbers.join('-')}</span></div>`; }); }
+        window.updateLuckyUserList = function() { document.getElementById('lucky-user-count').innerText = state.luckyUsers.length; const list = document.getElementById('lucky-user-list'); list.innerHTML = ''; state.luckyUsers.forEach(u => { const isW = state.luckyWinnersIds.includes(u.id); list.innerHTML += `<div class="p-2 bg-yellow-900/10 border border-yellow-500/10 rounded-lg flex justify-between items-center text-[20px] font-bold ${isW?'user-winner ring-1 ring-yellow-400':''}"><span>${u.name}${getLoyaltyBadgeHTML(u.loyalty)}</span><span class="text-yellow-500 font-mono tracking-widest">${u.numbers.join('-')}</span></div>`; }); }
         
         function rollLuckyBalls() { if(state.isLuckyRolling || state.luckyUsers.length === 0) return; state.isLuckyRolling = true; document.getElementById('lucky-result-panel').classList.add('opacity-0', 'translate-y-4'); const balls = [document.getElementById('ball-1'), document.getElementById('ball-2'), document.getElementById('ball-3')]; const res = [Math.floor(Math.random()*9)+1, Math.floor(Math.random()*9)+1, Math.floor(Math.random()*9)+1]; balls.forEach(b => b.classList.add('ball-spinning')); let fin = 0; balls.forEach((b, i) => { let cyc = 0; const max = 20 + (i * 15); const int = setInterval(() => { b.innerText = Math.floor(Math.random()*9)+1; if(cyc++ >= max) { clearInterval(int); b.innerText = res[i]; b.classList.remove('ball-spinning'); fin++; if(fin === balls.length) { state.luckyResult = res; processLuckyWinners(); } } }, 60); }); }
 
@@ -1947,8 +2098,6 @@
             state.isLuckyRolling = false; 
             const [r1, r2, r3] = state.luckyResult;
             
-            if(window.batchUpdateParticipation) window.batchUpdateParticipation(state.luckyUsers);
-
             const winners3 = state.luckyUsers.filter(u => u.numbers[0] === r1 && u.numbers[1] === r2 && u.numbers[2] === r3);
             const winners2 = state.luckyUsers.filter(u => u.numbers[0] === r1 && u.numbers[1] === r2 && u.numbers[2] !== r3);
             const winners1 = state.luckyUsers.filter(u => u.numbers[0] === r1 && u.numbers[1] !== r2);
@@ -1971,11 +2120,15 @@
                 groupLabel = "1 BİLEN";
             }
 
+            // Distribute Points to non-winners
+            const winningIds = winningGroup.map(u => u.id);
+            if(window.distributeLoyaltyPoints) window.distributeLoyaltyPoints(state.luckyUsers, winningIds);
+
             const d = document.getElementById('lucky-winners-display'); 
             d.innerHTML = ''; 
 
             if(winningGroup.length > 0) {
-                state.luckyWinnersIds.push(...winningGroup.map(u => u.id));
+                state.luckyWinnersIds.push(...winningIds);
                 winningGroup.forEach(w => {
                     d.innerHTML += `<div class="flex justify-between items-center p-3 bg-emerald-500/20 border border-emerald-500/40 rounded-xl">
                         <span class="font-black text-white">${w.name}</span>
@@ -2002,7 +2155,7 @@
             document.getElementById('dice-stop-btn').classList.toggle('hidden', !e);
             if(window.updateFirestoreGameState) window.updateFirestoreGameState('dice', e ? 'open' : 'closed');
         }
-        window.updateDiceUserList = function() { document.getElementById('dice-user-count').innerText = state.diceUsers.length; const list = document.getElementById('dice-user-list'); list.innerHTML = ''; state.diceUsers.forEach(u => { const isW = state.diceWinnersIds.includes(u.id); list.innerHTML += `<div class="p-2 bg-indigo-900/10 border border-indigo-500/10 rounded-lg flex justify-between items-center text-[20px] font-bold ${isW?'user-winner ring-1 ring-indigo-400':''}"><span>${u.name}</span><span class="text-indigo-400 font-mono tracking-widest">/zar ${u.target}</span></div>`; }); }
+        window.updateDiceUserList = function() { document.getElementById('dice-user-count').innerText = state.diceUsers.length; const list = document.getElementById('dice-user-list'); list.innerHTML = ''; state.diceUsers.forEach(u => { const isW = state.diceWinnersIds.includes(u.id); list.innerHTML += `<div class="p-2 bg-indigo-900/10 border border-indigo-500/10 rounded-lg flex justify-between items-center text-[20px] font-bold ${isW?'user-winner ring-1 ring-indigo-400':''}"><span>${u.name}${getLoyaltyBadgeHTML(u.loyalty)}</span><span class="text-indigo-400 font-mono tracking-widest">/zar ${u.target}</span></div>`; }); }
         
         function renderDiceDots(el, num) { if(!el) return; el.innerHTML = ''; const p = { 1:[4], 2:[0,8], 3:[0,4,8], 4:[0,2,6,8], 5:[0,2,4,6,8], 6:[0,2,3,5,6,8] }; const dots = p[num] || []; for(let i=0; i<9; i++) { const d = document.createElement('div'); if(dots.includes(i)) d.className = 'dice-dot'; el.appendChild(d); } }
         function rollDice() { if(state.isDiceRolling || state.diceUsers.length === 0) return; state.isDiceRolling = true; document.getElementById('dice-result-panel').classList.add('opacity-0', 'translate-y-4'); const res = [1,2,3,4,5].map(() => Math.floor(Math.random()*6)+1); const sum = res.reduce((a,b)=>a+b, 0); const diceEls = [1,2,3,4,5].map(i => document.getElementById(`dice-${i}`)); diceEls.forEach(d => d.classList.add('dice-rolling')); let fin = 0; diceEls.forEach((d, i) => { let cyc = 0; const max = 15 + (i * 8); const int = setInterval(() => { renderDiceDots(d, Math.floor(Math.random()*6)+1); if(cyc++ >= max) { clearInterval(int); renderDiceDots(d, res[i]); d.classList.remove('dice-rolling'); fin++; if(fin === 5) { state.diceSum = sum; processDiceWinners(); } } }, 80); }); }
@@ -2012,15 +2165,18 @@
             document.getElementById('dice-sum').innerText = state.diceSum; 
             document.getElementById('dice-total-display').classList.remove('opacity-0'); 
             
-            if(window.batchUpdateParticipation) window.batchUpdateParticipation(state.diceUsers);
-
             const winners = state.diceUsers.filter(u => u.target === state.diceSum); 
+            
+            // Distribute Points
+            const winningIds = winners.map(u => u.id);
+            if(window.distributeLoyaltyPoints) window.distributeLoyaltyPoints(state.diceUsers, winningIds);
+
             const d = document.getElementById('dice-winners-display'); 
             d.innerHTML = ''; 
 
             if(winners.length > 0) {
                 const perPersonReward = Math.floor(state.config.diceJackpot / winners.length);
-                state.diceWinnersIds.push(...winners.map(u => u.id));
+                state.diceWinnersIds.push(...winningIds);
                 winners.forEach(w => {
                     d.innerHTML += `<div class="flex justify-between items-center p-3 bg-indigo-500/20 border border-indigo-500/40 rounded-xl">
                         <span class="font-black text-white">${w.name}</span>
