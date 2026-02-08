@@ -1030,8 +1030,7 @@
 
     <script>
         // --- AUTH CONSTANTS ---
-        const DEFAULT_USERS = {  
-            "orionpax": "orionpax"
+        const DEFAULT_USERS = {   
             "ain": "ain",
             "wolverine": "wolverine"
         };
@@ -1505,11 +1504,9 @@
         function appendToConfig(type, id) {
             const item = state.rewardPool.find(r => r.id === id);
             if(!item) return;
-            
-            // DÜZELTME: SADECE İSİM EKLENİR, LINK EKLENMEZ
+            // Sadece İsim Eklenir, Link Eklenmez!
             let textToAdd = item.name;
             textToAdd += "\n";
-            
             if(type === 'box') { document.getElementById('reward-input').value += textToAdd; } 
             else if (type === 'wheel') { document.getElementById('wheel-reward-input').value += textToAdd; }
             alert("Ödül ilgili listeye eklendi!");
@@ -1893,7 +1890,11 @@
                 const parts = rawReward.split('|');
                 rewardText = parts[0].trim();
                 rewardImg = parts[1].trim();
+            } else {
+                // EĞER PIPE (|) YOKSA, HAVUZDAN OTOMATİK RESİM ARA
+                rewardImg = findRewardImage(rewardText);
             }
+
             state.isBoxOpened = true; 
             state.eliminatedUsers.push(state.currentWinner.id); 
             document.getElementById(`box-${n}`).classList.add('opened'); 
@@ -2031,6 +2032,9 @@
                         const parts = result.split('|');
                         rewardText = parts[0].trim();
                         rewardImg = parts[1].trim();
+                    } else {
+                         // EĞER PIPE (|) YOKSA, HAVUZDAN OTOMATİK RESİM ARA
+                         rewardImg = findRewardImage(rewardText);
                     }
                     
                     const rewardEl = document.getElementById('wheel-winner-reward'); 
@@ -2268,4 +2272,3 @@
     </script>
 </body>
 </html>
-
