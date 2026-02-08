@@ -336,47 +336,6 @@
 
         /* Loyalty Badge Style removed mostly, kept for safety but unused */
         .loyalty-badge { display: none; }
-
-        /* TAVERN STYLES */
-        .race-card {
-            position: relative;
-            border-radius: 20px;
-            overflow: hidden;
-            box-shadow: 0 0 30px rgba(0,0,0,0.5);
-            transition: transform 0.3s;
-        }
-        .race-card:hover { transform: scale(1.02); }
-        .race-card-human { border: 4px solid #3b82f6; box-shadow: 0 0 20px rgba(59, 130, 246, 0.6); }
-        .race-card-magron { border: 4px solid #f97316; box-shadow: 0 0 20px rgba(249, 115, 22, 0.6); }
-        
-        .tavern-winner-row {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            background: rgba(255,255,255,0.05);
-            padding: 10px;
-            margin-bottom: 5px;
-            border-radius: 8px;
-            border: 1px solid rgba(255,255,255,0.1);
-        }
-        .tick-btn {
-            background: #10b981;
-            color: #fff;
-            width: 30px; height: 30px;
-            border-radius: 50%;
-            display: flex; align-items: center; justify-content: center;
-            font-size: 16px;
-            cursor: pointer;
-            transition: all 0.2s;
-            box-shadow: 0 0 10px rgba(16, 185, 129, 0.5);
-        }
-        .tick-btn:hover { transform: scale(1.1); background: #34d399; }
-        
-        .tavern-reward-img {
-            width: 40px; height: 40px;
-            object-fit: contain;
-            filter: drop-shadow(0 0 5px rgba(255,255,255,0.5));
-        }
     </style>
 </head>
 <body>
@@ -565,9 +524,6 @@
                     } else if (gameType === 'ticket') {
                         window.state.ticketUsers = entries.map(e => ({ id: e.id, name: e.nick, race: e.race, ticketNumber: e.prediction || Math.floor(10000 + Math.random() * 90000).toString() }));
                         window.updateTicketUserList();
-                    } else if (gameType === 'tavern') {
-                        window.state.tavernUsers = entries.map(e => ({ id: e.id, name: e.nick, race: e.race }));
-                        window.updateTavernUserList();
                     }
                 });
             }
@@ -697,10 +653,6 @@
                      state.ticketWinner = null;
                      document.getElementById('ticket-winner-area').classList.add('opacity-0');
                  }
-                 else if (gameType === 'tavern') {
-                     document.getElementById('human-seat-list').innerHTML = '';
-                     document.getElementById('magron-seat-list').innerHTML = '';
-                 }
 
                  alert("Çekiliş tamamlandı ve liste temizlendi!");
             }
@@ -713,7 +665,6 @@
                  window.state.mirrorUsers = []; window.state.eliminatedMirrorUsers = [];
                  window.state.raffleUsers = []; window.state.eliminatedRaffleUsers = [];
                  window.state.ticketUsers = []; window.state.ticketWinner = null;
-                 window.state.tavernUsers = []; window.state.eliminatedTavernUsers = [];
                  window.state.winners = [];
                  window.updateUserList(); window.updateWheelUserList(); window.updateLuckyUserList(); window.updateDiceUserList();
                  window.updateMirrorUserList(); window.updateRaffleUserList(); window.updateTicketUserList();
@@ -768,7 +719,6 @@
                 <button id="tab-wheel" onclick="switchTab('wheel')" class="tab-btn px-4 py-2 rounded-lg text-[12px] font-bold uppercase transition shrink-0">ŞANSLI ÇARK🛞</button>
                 <button id="tab-raffle" onclick="switchTab('raffle')" class="tab-btn px-4 py-2 rounded-lg text-[12px] font-bold uppercase transition shrink-0 text-orange-400">KLASİK ÇEKİLİŞ 🔥</button>
                 <button id="tab-ticket" onclick="switchTab('ticket')" class="tab-btn px-4 py-2 rounded-lg text-[12px] font-bold uppercase transition shrink-0 text-amber-300">BİLET OYUNU 🎫</button>
-                <button id="tab-tavern" onclick="switchTab('tavern')" class="tab-btn px-4 py-2 rounded-lg text-[12px] font-bold uppercase transition shrink-0 text-purple-400">TAVERNA 🍺</button>
                 <button id="tab-lucky" onclick="switchTab('lucky')" class="tab-btn px-4 py-2 rounded-lg text-[12px] font-bold uppercase transition shrink-0">ŞANS TOPU🎡</button>
                 <button id="tab-dice" onclick="switchTab('dice')" class="tab-btn px-4 py-2 rounded-lg text-[12px] font-bold uppercase transition shrink-0">ZAR OYUNU 🎲</button>
                 <button id="tab-pool" onclick="switchTab('pool')" class="tab-btn px-4 py-2 rounded-lg text-[12px] font-bold uppercase transition shrink-0 text-sky-400">HAVUZ YÖNETİMİ 🏊</button>
@@ -848,53 +798,6 @@
                             <div id="mirror-reward-text" class="text-xl font-black text-emerald-400 uppercase italic leading-tight flex flex-col items-center">...</div>
                             <button onclick="resetMirrorRound()" class="mt-4 bg-purple-500 text-white px-6 py-2 rounded-full text-[10px] font-black uppercase">SIRADAKİ OYUNCU</button>
                         </div>
-                    </div>
-                </div>
-            </section>
-        </main>
-
-        <!-- TAVERN GAME -->
-        <main id="tavern-page" class="flex-1 hidden-page grid grid-cols-1 lg:grid-cols-12 gap-4 overflow-hidden">
-            <aside class="lg:col-span-3 glass-panel rounded-2xl p-4 flex flex-col overflow-hidden">
-                <div class="flex justify-between items-center mb-3">
-                    <h2 class="font-bold text-xs uppercase text-purple-400 italic">MÜŞTERİLER</h2>
-                    <span id="tavern-user-count" class="text-purple-400 text-xs font-mono">0</span>
-                </div>
-                <div id="tavern-user-list" class="flex-1 overflow-y-auto space-y-1.5 pr-2 custom-scrollbar"></div>
-                <div class="mt-4 pt-4 border-t border-white/5 space-y-2">
-                    <button id="tavern-start-btn" onclick="toggleTavernJoin(true)" class="w-full bg-purple-600 text-white font-black py-3 rounded-lg transition uppercase text-[10px]">KAPIYI AÇ</button>
-                    <button id="tavern-stop-btn" onclick="toggleTavernJoin(false)" class="hidden w-full bg-rose-600 text-white font-black py-3 rounded-lg transition uppercase text-[10px]">KAPIYI KAPAT</button>
-                    <button onclick="window.finishGameSession('tavern')" class="w-full bg-rose-600 hover:bg-rose-500 text-white font-black py-3 rounded-lg transition uppercase border border-white/10 text-[10px] mt-2 shadow-[0_0_15px_rgba(225,29,72,0.4)]">ÇEKİLİŞİ TAMAMLA & LİSTEYİ SİL</button>
-                </div>
-            </aside>
-            <section class="lg:col-span-9 glass-panel rounded-2xl p-6 flex flex-col overflow-hidden">
-                <div class="flex gap-4 items-end mb-6">
-                    <div class="flex-1">
-                        <label class="text-[10px] font-bold text-slate-400 uppercase mb-1 block">ÇEKİLİŞ ADEDİ</label>
-                        <input type="number" id="tavern-draw-count" value="5" min="1" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-white outline-none focus:border-purple-500 font-bold text-center">
-                    </div>
-                    <button onclick="startTavernDraft()" class="flex-[3] bg-purple-600 hover:bg-purple-500 h-[50px] rounded-xl font-black uppercase text-sm shadow-[0_0_20px_rgba(168,85,247,0.4)] transition">MASALARI DOLDUR (ÇEKİLİŞ YAP)</button>
-                </div>
-                <div class="flex-1 grid grid-cols-2 gap-6 overflow-hidden">
-                    <!-- HUMAN SIDE -->
-                    <div class="flex flex-col bg-slate-900/40 rounded-2xl p-4 border border-blue-500/20">
-                        <div class="flex justify-center mb-4">
-                            <div class="race-card race-card-human">
-                                <img src="https://dwar.gen.tr/images/data/npcs/igrok_hum.jpg" alt="Human" class="w-32 h-32 object-cover">
-                                <div class="absolute bottom-0 w-full bg-blue-600/80 text-center text-[10px] font-bold uppercase py-1">İNSAN IRKI</div>
-                            </div>
-                        </div>
-                        <div id="human-seat-list" class="flex-1 overflow-y-auto custom-scrollbar space-y-2"></div>
-                    </div>
-                    <!-- MAGRON SIDE -->
-                    <div class="flex flex-col bg-slate-900/40 rounded-2xl p-4 border border-orange-500/20">
-                        <div class="flex justify-center mb-4">
-                            <div class="race-card race-card-magron">
-                                <img src="https://dwar.gen.tr/images/data/npcs/igrok_mag.jpg" alt="Magron" class="w-32 h-32 object-cover">
-                                <div class="absolute bottom-0 w-full bg-orange-600/80 text-center text-[10px] font-bold uppercase py-1">MAGRON IRKI</div>
-                            </div>
-                        </div>
-                        <div id="magron-seat-list" class="flex-1 overflow-y-auto custom-scrollbar space-y-2"></div>
                     </div>
                 </div>
             </section>
@@ -1486,7 +1389,6 @@
             mirrorValues: [], mirrorSelections: 0, mirrorCurrentTotal: 0, mirrorCount: 15, mirrorSelectionIndices: [],
             isRaffleJoinEnabled: false, raffleUsers: [], eliminatedRaffleUsers: [], isRaffleRunning: false,
             isTicketJoinEnabled: false, ticketUsers: [], ticketWinner: null, 
-            isTavernJoinEnabled: false, tavernUsers: [], eliminatedTavernUsers: [],
             winners: [],
             allStats: [], 
             rewardPool: [], 
@@ -1658,8 +1560,8 @@
         }
 
         function switchTab(tab) {
-            const pages = { game: 'game-page', mirror: 'mirror-page', wheel: 'wheel-page', lucky: 'lucky-page', dice: 'dice-page', winners: 'winners-page', config: 'config-page', raffle: 'raffle-page', ticket: 'ticket-page', stats: 'stats-page', pool: 'pool-page', tavern: 'tavern-page' };
-            const btns = { game: 'tab-game', mirror: 'tab-mirror', wheel: 'tab-wheel', lucky: 'tab-lucky', dice: 'tab-dice', winners: 'tab-winners', config: 'tab-config', raffle: 'tab-raffle', ticket: 'tab-ticket', stats: 'tab-stats', pool: 'tab-pool', tavern: 'tab-tavern' };
+            const pages = { game: 'game-page', mirror: 'mirror-page', wheel: 'wheel-page', lucky: 'lucky-page', dice: 'dice-page', winners: 'winners-page', config: 'config-page', raffle: 'raffle-page', ticket: 'ticket-page', stats: 'stats-page', pool: 'pool-page' };
+            const btns = { game: 'tab-game', mirror: 'tab-mirror', wheel: 'tab-wheel', lucky: 'tab-lucky', dice: 'tab-dice', winners: 'tab-winners', config: 'tab-config', raffle: 'tab-raffle', ticket: 'tab-ticket', stats: 'tab-stats', pool: 'tab-pool' };
             Object.keys(pages).forEach(key => {
                 const p = document.getElementById(pages[key]);
                 const b = document.getElementById(btns[key]);
@@ -1957,97 +1859,6 @@
             document.getElementById('reveal-winner-btn').classList.add('hidden');
             fireConfetti();
             saveToArchive(wName, "BİLET", `No: ${state.ticketWinner.ticketNumber}`, "Büyük İkramiye", state.ticketWinner.race);
-        }
-
-        // --- TAVERN GAME LOGIC ---
-        function toggleTavernJoin(e) {
-            state.isTavernJoinEnabled = e;
-            document.getElementById('tavern-start-btn').classList.toggle('hidden', e);
-            document.getElementById('tavern-stop-btn').classList.toggle('hidden', !e);
-            if(window.updateFirestoreGameState) window.updateFirestoreGameState('tavern', e ? 'open' : 'closed');
-        }
-
-        window.updateTavernUserList = function() {
-            document.getElementById('tavern-user-count').innerText = state.tavernUsers.length;
-            const list = document.getElementById('tavern-user-list');
-            list.innerHTML = '';
-            state.tavernUsers.forEach(u => {
-                list.innerHTML += `<div class="p-2 bg-purple-900/20 border border-purple-500/20 rounded-lg text-[16px] font-bold text-slate-300">${u.name} <span class="text-xs text-white/50">(${u.race})</span></div>`;
-            });
-        }
-
-        function startTavernDraft() {
-            const count = parseInt(document.getElementById('tavern-draw-count').value) || 5;
-            const humans = state.tavernUsers.filter(u => {
-                const r = (u.race || "").toLowerCase();
-                return r.includes('human') || r.includes('insan');
-            });
-            const magrons = state.tavernUsers.filter(u => {
-                const r = (u.race || "").toLowerCase();
-                return r.includes('mag') || r.includes('magmar');
-            });
-
-            // Randomly pick 'count' winners for each
-            const selectedHumans = [];
-            const selectedMagrons = [];
-
-            // Shuffle copy
-            const hShuffle = [...humans].sort(() => 0.5 - Math.random());
-            const mShuffle = [...magrons].sort(() => 0.5 - Math.random());
-
-            for (let i = 0; i < count; i++) {
-                if (hShuffle[i]) selectedHumans.push(hShuffle[i]);
-                if (mShuffle[i]) selectedMagrons.push(mShuffle[i]);
-            }
-
-            // Distribute participation points to ALL tavern users present
-            if(window.distributeParticipationOnly) window.distributeParticipationOnly(state.tavernUsers);
-
-            renderTavernWinners('human-seat-list', selectedHumans);
-            renderTavernWinners('magron-seat-list', selectedMagrons);
-        }
-
-        function renderTavernWinners(containerId, winners) {
-            const container = document.getElementById(containerId);
-            container.innerHTML = '';
-            winners.forEach(w => {
-                container.innerHTML += `
-                    <div class="tavern-winner-row">
-                        <span class="font-bold text-white uppercase text-lg">${w.name}</span>
-                        <div id="tavern-reward-spot-${w.id}">
-                            <button onclick="revealTavernReward('${w.id}', '${w.name}', '${w.race}')" class="tick-btn">✅</button>
-                        </div>
-                    </div>
-                `;
-            });
-        }
-
-        function revealTavernReward(uid, uname, urace) {
-            const rewards = state.config.rewards;
-            if (rewards.length === 0) return alert("Havuza ödül ekleyin!");
-            
-            const randomRewardRaw = rewards[Math.floor(Math.random() * rewards.length)];
-            
-            // Handle pipe separation if legacy data exists, though now we prefer clean names
-            let rewardText = randomRewardRaw;
-            if (randomRewardRaw.includes('|')) {
-                rewardText = randomRewardRaw.split('|')[0].trim();
-            }
-
-            const imgUrl = findRewardImage(rewardText);
-            const container = document.getElementById(`tavern-reward-spot-${uid}`);
-            
-            let htmlContent = '';
-            if (imgUrl) {
-                htmlContent = `<div class="flex items-center gap-2"><img src="${imgUrl}" class="tavern-reward-img"><span class="text-xs font-bold text-yellow-400">${rewardText}</span></div>`;
-            } else {
-                htmlContent = `<span class="text-sm font-bold text-yellow-400">${rewardText}</span>`;
-            }
-
-            container.innerHTML = htmlContent;
-            
-            // Save log
-            saveToArchive(uname, "TAVERNA", "Ödül Masası", rewardText, urace);
         }
 
         // --- BOX LOGIC ---
@@ -2418,4 +2229,47 @@
 
         function confirmReset() { 
             if(confirm("DİKKAT: Bu işlem tüm katılımcı listelerini veritabanından silecek ve ekranı temizleyecektir. Oturum kapanmayacaktır. Devam edilsin mi?")) { 
-                window.
+                window.fullSystemReset();
+            } 
+        }
+
+        // CONFETTI FUNC
+        function fireConfetti() {
+            const canvas = document.getElementById("confetti-canvas");
+            const ctx = canvas.getContext("2d");
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            const particles = [];
+            for (let i = 0; i < 300; i++) {
+                particles.push({
+                    x: Math.random() * canvas.width,
+                    y: Math.random() * canvas.height - canvas.height,
+                    vx: Math.random() * 4 - 2,
+                    vy: Math.random() * 4 + 2,
+                    color: `hsl(${Math.random() * 360}, 100%, 50%)`,
+                    size: Math.random() * 6 + 2
+                });
+            }
+            function animate() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                let active = false;
+                particles.forEach(p => {
+                    p.x += p.vx;
+                    p.y += p.vy;
+                    if (p.y < canvas.height) active = true;
+                    ctx.fillStyle = p.color;
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                    ctx.fill();
+                });
+                if (active) requestAnimationFrame(animate);
+                else ctx.clearRect(0,0,canvas.width,canvas.height);
+            }
+            animate();
+        }
+
+        window.onload = init;
+    </script>
+</body>
+</html>
+
