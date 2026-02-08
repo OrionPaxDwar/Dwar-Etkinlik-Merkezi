@@ -17,7 +17,7 @@
             overflow: hidden;
             height: 100vh;
             margin: 0;
-            /* ÖLÇEKLENDİRME AYARI: Arayüzü biraz yakınlaştırdık */
+            /* ÖLÇEKLENDİRME: %10 Büyütme korundu */
             zoom: 1.10; 
         }
 
@@ -431,8 +431,8 @@
     </div>
 
 
-    <!-- ANA UYGULAMA -->
-    <div id="app-container" class="h-full flex flex-col p-4 pb-16 hidden">
+    <!-- ANA UYGULAMA (GÜNCELLENMİŞ PADDING - ALTTA BOŞLUK BIRAKMAK İÇİN 'pb-32' EKLENDİ) -->
+    <div id="app-container" class="h-full flex flex-col p-4 pb-32 hidden">
 
         <!-- Firebase SDK Imports -->
         <script type="module">
@@ -604,6 +604,51 @@
                  if(updateCount > 0) {
                     try { await batch.commit(); console.log("Katılım puanları dağıtıldı: " + updateCount + " kişi."); } catch(e) { console.error("Participation update error:", e); }
                  }
+            };
+
+            // --- YENİ FONKSİYON: TÜM KATILIMLARI 1'E ÇEK (RESET & FIX) ---
+            window.fixParticipationCounts = async () => {
+                if(!currentUser) return;
+                if(!confirm("DİKKAT: Bu işlem veritabanındaki TÜM oyuncuların katılım sayısını 1 olarak güncelleyecektir. Ayrıca ırk ismi 'Magmar' olanları 'Magron' olarak düzeltecektir. Onaylıyor musunuz?")) return;
+
+                const statsRef = collection(db, 'artifacts', appId, 'public', 'data', 'player_stats');
+                const snapshot = await getDocs(statsRef);
+                const batch = writeBatch(db);
+                let count = 0;
+
+                snapshot.forEach((docSnap) => {
+                    const data = docSnap.data();
+                    let needsUpdate = false;
+                    const updateData = {};
+
+                    // Katılım sayısını 1 yap (eğer 1'den farklıysa)
+                    if (data.participationCount !== 1) {
+                        updateData.participationCount = 1;
+                        needsUpdate = true;
+                    }
+
+                    // Magmar -> Magron
+                    if (data.race && data.race.toLowerCase().includes('magmar')) {
+                        updateData.race = 'Magron';
+                        needsUpdate = true;
+                    }
+
+                    if (needsUpdate) {
+                        batch.update(docSnap.ref, updateData);
+                        count++;
+                    }
+                });
+
+                if (count > 0) {
+                    try {
+                        await batch.commit();
+                        alert(`Başarılı: ${count} oyuncunun verisi düzeltildi (Katılım 1 yapıldı, Irklar onarıldı).`);
+                    } catch (e) {
+                        alert("Hata oluştu: " + e.message);
+                    }
+                } else {
+                    alert("Düzeltilecek veri bulunamadı.");
+                }
             };
 
             window.deleteStat = async (statId, e) => {
@@ -1014,7 +1059,10 @@
         <main id="config-page" class="flex-1 hidden-page glass-panel rounded-2xl p-8 overflow-y-auto custom-scrollbar">
             <div class="flex justify-between items-center mb-8 border-b border-white/10 pb-4">
                 <h2 class="text-3xl font-black text-yellow-500 uppercase tracking-widest">SİSTEM KONFİGÜRASYONU</h2>
-                <button onclick="updateSettingsAndSync()" class="bg-emerald-600 hover:bg-emerald-500 py-3 px-8 rounded-xl font-black transition uppercase text-sm shadow-lg border border-emerald-400/30">AYARLARI KAYDET</button>
+                <div class="flex gap-2">
+                    <button onclick="fixParticipationCounts()" class="bg-rose-900/50 hover:bg-rose-600 border border-rose-500/30 text-rose-200 py-3 px-4 rounded-xl font-black transition uppercase text-xs shadow-lg flex items-center gap-2">⚠️ KATILIMLARI 1'E ÇEK (DÜZELT)</button>
+                    <button onclick="updateSettingsAndSync()" class="bg-emerald-600 hover:bg-emerald-500 py-3 px-8 rounded-xl font-black transition uppercase text-sm shadow-lg border border-emerald-400/30">AYARLARI KAYDET</button>
+                </div>
             </div>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
                 <div class="space-y-6">
