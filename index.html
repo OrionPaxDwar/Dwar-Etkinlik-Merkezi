@@ -17,7 +17,6 @@
             overflow: hidden;
             height: 100vh;
             margin: 0;
-            /* ÖLÇEKLENDİRME KALDIRILDI */
         }
 
         .glass-panel {
@@ -429,8 +428,8 @@
     </div>
 
 
-    <!-- ANA UYGULAMA (GÜNCELLENMİŞ PADDING - ALTTA BOŞLUK BIRAKMAK İÇİN 'pb-32' EKLENDİ) -->
-    <div id="app-container" class="h-full flex flex-col p-4 pb-32 hidden">
+    <!-- ANA UYGULAMA -->
+    <div id="app-container" class="h-full flex flex-col p-4 pb-16 hidden">
 
         <!-- Firebase SDK Imports -->
         <script type="module">
@@ -496,10 +495,7 @@
                         const data = doc.data();
                         const normalizedNick = data.nick.trim().toLocaleLowerCase('tr');
                         
-                        // MAGMAR DÜZELTMESİ (MAGMAR GÖRÜRSE MAGRON YAPAR)
-                        if (data.race && data.race.toLowerCase().includes('magmar')) {
-                            data.race = 'Magron';
-                        }
+                        // Sadakat puanı kaldırıldı, varsayılan 0
                         
                         if (!seenNicks.has(normalizedNick)) {
                             seenNicks.add(normalizedNick);
@@ -546,8 +542,10 @@
             window.updateStatInFirestore = async (nick, isWin, winDetails, race) => {
                 if(!currentUser) return;
                 
-                // MAGMAR DÜZELTMESİ
-                if(race && race.toLowerCase().includes('magmar')) race = 'Magron';
+                // Magmar düzeltmesi
+                if (race && race.toLowerCase().includes('magmar')) {
+                    race = 'Magron';
+                }
 
                 const normalizedNick = nick.trim().toLocaleLowerCase('tr');
                 const userRef = doc(db, 'artifacts', appId, 'public', 'data', 'player_stats', normalizedNick);
@@ -561,36 +559,37 @@
             };
 
             // Toplu katılım (SADECE KATILIM SAYISI ARTAR, PUAN YOK)
-            // ARTIK SADECE OYUN SONUNDA ÇAĞRILACAK - 30 KERE ÇALIŞMASINI ÖNLEMEK İÇİN
             window.distributeParticipationOnly = async (allParticipants) => {
                  if(!currentUser || !allParticipants || allParticipants.length === 0) return;
-                 
-                 // Sadece ID'si benzersiz olanları alalım (Garantilemek için)
-                 const uniqueParticipants = [];
-                 const seen = new Set();
-                 allParticipants.forEach(u => {
-                     const key = (u.name || u.nick).trim().toLocaleLowerCase('tr');
-                     if(!seen.has(key)) {
-                         seen.add(key);
-                         uniqueParticipants.push(u);
-                     }
-                 });
-
                  const batch = writeBatch(db);
                  let updateCount = 0;
 
-                 uniqueParticipants.forEach(u => {
-                     const normalizedNick = (u.name || u.nick).trim().toLocaleLowerCase('tr');
+                 // DUPLICATE ENGELLEME: Aynı isim listede 10 kere olsa bile 1 kere katılım sayılır
+                 const uniqueUsersMap = new Map();
+                 allParticipants.forEach(u => {
+                    const name = u.name || u.nick;
+                    if(name) {
+                        const normalized = name.trim().toLocaleLowerCase('tr');
+                        if (!uniqueUsersMap.has(normalized)) {
+                            uniqueUsersMap.set(normalized, u);
+                        }
+                    }
+                 });
+
+                 uniqueUsersMap.forEach((u, key) => {
+                     const normalizedNick = key;
                      const userRef = doc(db, 'artifacts', appId, 'public', 'data', 'player_stats', normalizedNick);
                      
-                     // Magmar Düzeltmesi
                      let race = u.race;
-                     if(race && race.toLowerCase().includes('magmar')) race = 'Magron';
+                     // Magmar Düzeltmesi
+                     if(race && race.toLowerCase().includes('magmar')) {
+                        race = 'Magron';
+                     }
 
                      // Temel Katılım Güncellemesi
                      const updateData = { 
                          nick: u.name || u.nick, 
-                         participationCount: increment(1), 
+                         participationCount: increment(1), // Mükerrer kayıtlar elendiği için sadece 1 artar
                          lastSeen: new Date().toISOString() 
                      };
                      if (race) { updateData.race = race; }
@@ -600,53 +599,8 @@
                  });
                  
                  if(updateCount > 0) {
-                    try { await batch.commit(); console.log("Katılım puanları dağıtıldı: " + updateCount + " kişi."); } catch(e) { console.error("Participation update error:", e); }
+                    try { await batch.commit(); } catch(e) { console.error("Participation update error:", e); }
                  }
-            };
-
-            // --- YENİ FONKSİYON: TÜM KATILIMLARI 1'E ÇEK (RESET & FIX) ---
-            window.fixParticipationCounts = async () => {
-                if(!currentUser) return;
-                if(!confirm("DİKKAT: Bu işlem veritabanındaki TÜM oyuncuların katılım sayısını 1 olarak güncelleyecektir. Ayrıca ırk ismi 'Magmar' olanları 'Magron' olarak düzeltecektir. Onaylıyor musunuz?")) return;
-
-                const statsRef = collection(db, 'artifacts', appId, 'public', 'data', 'player_stats');
-                const snapshot = await getDocs(statsRef);
-                const batch = writeBatch(db);
-                let count = 0;
-
-                snapshot.forEach((docSnap) => {
-                    const data = docSnap.data();
-                    let needsUpdate = false;
-                    const updateData = {};
-
-                    // Katılım sayısını 1 yap (eğer 1'den farklıysa)
-                    if (data.participationCount !== 1) {
-                        updateData.participationCount = 1;
-                        needsUpdate = true;
-                    }
-
-                    // Magmar -> Magron
-                    if (data.race && data.race.toLowerCase().includes('magmar')) {
-                        updateData.race = 'Magron';
-                        needsUpdate = true;
-                    }
-
-                    if (needsUpdate) {
-                        batch.update(docSnap.ref, updateData);
-                        count++;
-                    }
-                });
-
-                if (count > 0) {
-                    try {
-                        await batch.commit();
-                        alert(`Başarılı: ${count} oyuncunun verisi düzeltildi (Katılım 1 yapıldı, Irklar onarıldı).`);
-                    } catch (e) {
-                        alert("Hata oluştu: " + e.message);
-                    }
-                } else {
-                    alert("Düzeltilecek veri bulunamadı.");
-                }
             };
 
             window.deleteStat = async (statId, e) => {
@@ -675,25 +629,8 @@
                  await batch.commit();
             };
 
-            // GÜNCELLENMİŞ OYUN BİTİRME VE PUAN DAĞITMA FONKSİYONU
             window.finishGameSession = async (gameType) => {
-                 if (!confirm("Tur tamamlanacak, herkese katılım puanı verilecek ve liste temizlenecek. Onaylıyor musunuz?")) return;
-                 
-                 // ÖNCE KATILIM PUANLARINI DAĞIT (SADECE BURADA YAPILIYOR)
-                 let participantsToReward = [];
-                 if(gameType === 'game') participantsToReward = window.state.users;
-                 else if(gameType === 'mirror') participantsToReward = window.state.mirrorUsers;
-                 else if(gameType === 'wheel') participantsToReward = window.state.wheelUsers;
-                 else if(gameType === 'lucky') participantsToReward = window.state.luckyUsers;
-                 else if(gameType === 'dice') participantsToReward = window.state.diceUsers;
-                 else if(gameType === 'ticket') participantsToReward = window.state.ticketUsers;
-                 else if(gameType === 'raffle') participantsToReward = window.state.raffleUsers;
-
-                 if(participantsToReward.length > 0) {
-                     await window.distributeParticipationOnly(participantsToReward);
-                 }
-
-                 // SONRA TEMİZLE
+                 if (!confirm("Tur tamamlanacak ve katılımcı listesi temizlenecek. Onaylıyor musunuz?")) return;
                  await window.clearFirestoreCollection(gameType);
                  
                  // Local UI Reset
@@ -717,7 +654,7 @@
                      document.getElementById('ticket-winner-area').classList.add('opacity-0');
                  }
 
-                 alert("Katılım puanları işlendi, çekiliş tamamlandı ve liste temizlendi!");
+                 alert("Çekiliş tamamlandı ve liste temizlendi!");
             }
 
             window.fullSystemReset = async () => {
@@ -994,10 +931,7 @@
              <div class="p-6 bg-slate-900/80 rounded-2xl border border-sky-500/30 shadow-[0_0_30px_rgba(14,165,233,0.1)]">
                 <div class="flex justify-between items-end mb-4">
                     <h3 class="text-xl font-bold text-sky-400 uppercase tracking-widest italic flex items-center gap-2">KALICI ÖDÜL HAVUZU</h3>
-                </div>
-                <!-- Havuz Arama Inputu Eklendi -->
-                <div class="mb-4">
-                    <input type="text" id="pool-search" onkeyup="filterPool()" placeholder="Havuzda Ara..." class="w-full bg-slate-800 border border-slate-600 rounded-xl p-2 text-white outline-none focus:border-sky-500 transition text-sm">
+                    <input type="text" id="pool-search" onkeyup="filterPool()" placeholder="Havuzda Ara..." class="bg-slate-900 border border-slate-700 rounded-lg px-3 py-1 text-white text-xs outline-none focus:border-sky-500 w-48">
                 </div>
                 <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
                     <input id="pool-reward-name" type="text" placeholder="Ödül Adı (Örn: 1000 Altın)" class="md:col-span-2 bg-slate-800 border border-slate-600 rounded-xl p-3 text-white outline-none focus:border-sky-500 transition text-sm">
@@ -1352,7 +1286,7 @@
             if (statsFilter.race !== 'all') {
                 data = data.filter(s => {
                     const r = (s.race || "").toLowerCase();
-                    if (statsFilter.race === 'magron') return r.includes('magron') || r.includes('magmar');
+                    if (statsFilter.race === 'magron') return r.includes('magron');
                     if (statsFilter.race === 'human') return r.includes('insan') || r.includes('human');
                     return true;
                 });
@@ -1384,8 +1318,7 @@
                 let raceIcon = '<span class="text-slate-600 text-[10px]">-</span>';
                 if(s.race) {
                     const r = s.race.toLowerCase();
-                    // Magmar düzeltmesi
-                    if(r.includes('magron') || r.includes('magmar')) {
+                    if(r.includes('magron')) {
                         raceIcon = '<div class="flex flex-col items-center"><span class="text-2xl magron-fire">🔥</span><span class="text-[10px] text-red-500 font-bold uppercase tracking-widest mt-1">MAGRON</span></div>';
                     } else if (r.includes('insan') || r.includes('human')) {
                         raceIcon = '<div class="flex flex-col items-center"><span class="text-2xl human-shild">🛡️</span><span class="text-[10px] text-blue-500 font-bold uppercase tracking-widest mt-1">İNSAN</span></div>';
@@ -1547,17 +1480,6 @@
             document.getElementById('pool-reward-name').value = "";
             document.getElementById('pool-reward-image').value = "";
         }
-        
-        // HAVUZ FİLTRELEME FONKSİYONU
-        window.filterPool = function() {
-            const term = document.getElementById('pool-search').value.toLowerCase();
-            if(!term) {
-                 renderRewardPool(state.rewardPool);
-                 return;
-            }
-            const filtered = state.rewardPool.filter(r => r.name.toLowerCase().includes(term));
-            renderRewardPool(filtered);
-        }
 
         function removeRewardFromPool(id) {
             if(!confirm("Bu ödülü havuzdan silmek istediğinize emin misiniz?")) return;
@@ -1566,12 +1488,27 @@
             window.savePoolToFirestore();
         }
 
+        function filterPool() {
+            const term = document.getElementById('pool-search').value.toLowerCase();
+            const items = document.querySelectorAll('.pool-item');
+            items.forEach(item => {
+                const name = item.querySelector('.truncate').innerText.toLowerCase();
+                if (name.includes(term)) {
+                    item.style.display = 'flex';
+                } else {
+                    item.style.display = 'none';
+                }
+            });
+        }
+
         function appendToConfig(type, id) {
             const item = state.rewardPool.find(r => r.id === id);
             if(!item) return;
+            
+            // DÜZELTME: SADECE İSİM EKLENİR, LINK EKLENMEZ
             let textToAdd = item.name;
-            if(item.image) { textToAdd += ` | ${item.image}`; }
             textToAdd += "\n";
+            
             if(type === 'box') { document.getElementById('reward-input').value += textToAdd; } 
             else if (type === 'wheel') { document.getElementById('wheel-reward-input').value += textToAdd; }
             alert("Ödül ilgili listeye eklendi!");
@@ -1582,17 +1519,14 @@
             alert(`Çekiliş ödülü ayarlandı: ${name}`);
         }
 
-        window.renderRewardPool = function(dataToRender) {
+        window.renderRewardPool = function() {
             const list = document.getElementById('pool-list-display');
             list.innerHTML = "";
-            
-            const source = dataToRender || state.rewardPool;
-
-            if(source.length === 0) {
-                list.innerHTML = '<div class="text-center w-full col-span-3 text-slate-500 text-xs italic py-4">Sonuç bulunamadı veya havuz boş.</div>';
+            if(state.rewardPool.length === 0) {
+                list.innerHTML = '<div class="text-center w-full col-span-3 text-slate-500 text-xs italic py-4">Havuz boş. Yukarıdan ödül ekleyin.</div>';
                 return;
             }
-            source.forEach(r => {
+            state.rewardPool.forEach(r => {
                 const hasImg = r.image && r.image.trim() !== "";
                 list.innerHTML += `
                     <div class="pool-item group">
@@ -1609,6 +1543,8 @@
                     </div>
                 `;
             });
+            // Re-apply filter if search is active
+            filterPool();
         }
         
         function updateSettingsAndSync() {
@@ -1760,7 +1696,8 @@
             document.getElementById('start-raffle-btn').classList.remove('opacity-50', 'cursor-not-allowed');
             document.getElementById('raffle-status-msg').classList.add('opacity-0');
             
-            // NOT: Burada katılım istatistiği artırılmıyordu artık topluca window.finishGameSession içinde yapılacak
+            // Sadece Katılım İstatistiği Artır
+            if(window.distributeParticipationOnly) window.distributeParticipationOnly(state.raffleUsers);
             
             alert("Çekiliş tamamlandı!");
         }
@@ -1857,8 +1794,7 @@
             document.getElementById('mirror-result-announcement').classList.remove('opacity-0', 'translate-y-4'); 
             saveToArchive(state.mirrorWinner.name, "AYNA", `${total} Puan`, rewardText, state.mirrorWinner.race); 
             
-            // KATILIM PUANI ARTIK SADECE FINISHGAMESESSION'DA VERİLİYOR
-            // if(window.distributeParticipationOnly) window.distributeParticipationOnly(state.mirrorUsers);
+            if(window.distributeParticipationOnly) window.distributeParticipationOnly(state.mirrorUsers);
 
             state.eliminatedMirrorUsers.push(state.mirrorWinner.id); 
             window.updateMirrorUserList(); 
@@ -1898,8 +1834,7 @@
             state.ticketWinner = winner;
             const winningNumbers = winner.ticketNumber.split('');
 
-            // KATILIM PUANI ARTIK SADECE FINISHGAMESESSION'DA VERİLİYOR
-            // if(window.distributeParticipationOnly) window.distributeParticipationOnly(state.ticketUsers);
+            if(window.distributeParticipationOnly) window.distributeParticipationOnly(state.ticketUsers);
 
             document.getElementById('ticket-winner-area').classList.add('opacity-0', 'translate-y-10');
             document.getElementById('reveal-winner-btn').classList.add('hidden');
@@ -1965,8 +1900,8 @@
             document.getElementById(`reward-text-${n}`).innerHTML = contentHTML; 
             document.getElementById('post-box-controls').classList.remove('opacity-0', 'pointer-events-none'); 
             
-            // KATILIM PUANI ARTIK SADECE FINISHGAMESESSION'DA VERİLİYOR (HATA BURADAYDI)
-            // if(window.distributeParticipationOnly) window.distributeParticipationOnly(state.users);
+            // Distribute Participation
+            if(window.distributeParticipationOnly) window.distributeParticipationOnly(state.users);
             
             saveToArchive(state.currentWinner.name, "KUTU", `#${n}`, rewardText, state.currentWinner.race); 
         }
@@ -2121,8 +2056,8 @@
                     saveToArchive(state.wheelWinner.name, "ÇARK", "Ödül", rewardText, state.wheelWinner.race); 
                     state.eliminatedWheelUsers.push(state.wheelWinner.id); 
                     
-                    // KATILIM PUANI ARTIK SADECE FINISHGAMESESSION'DA VERİLİYOR
-                    // if(window.distributeParticipationOnly) window.distributeParticipationOnly(state.wheelUsers);
+                    // Distribute Participation
+                    if(window.distributeParticipationOnly) window.distributeParticipationOnly(state.wheelUsers);
 
                     setTimeout(() => {
                         state.config.wheelRewards.splice(index, 1);
@@ -2173,8 +2108,8 @@
                 groupLabel = "1 BİLEN";
             }
 
-            // KATILIM PUANI ARTIK SADECE FINISHGAMESESSION'DA VERİLİYOR
-            // if(window.distributeParticipationOnly) window.distributeParticipationOnly(state.luckyUsers);
+            // Distribute Participation
+            if(window.distributeParticipationOnly) window.distributeParticipationOnly(state.luckyUsers);
 
             const d = document.getElementById('lucky-winners-display'); 
             d.innerHTML = ''; 
@@ -2220,8 +2155,8 @@
             
             const winners = state.diceUsers.filter(u => u.target === state.diceSum); 
             
-            // KATILIM PUANI ARTIK SADECE FINISHGAMESESSION'DA VERİLİYOR
-            // if(window.distributeParticipationOnly) window.distributeParticipationOnly(state.diceUsers);
+            // Distribute Participation
+            if(window.distributeParticipationOnly) window.distributeParticipationOnly(state.diceUsers);
 
             const d = document.getElementById('dice-winners-display'); 
             d.innerHTML = ''; 
@@ -2320,4 +2255,15 @@
                     ctx.fillStyle = p.color;
                     ctx.beginPath();
                     ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-                    ctx.
+                    ctx.fill();
+                });
+                if (active) requestAnimationFrame(animate);
+                else ctx.clearRect(0,0,canvas.width,canvas.height);
+            }
+            animate();
+        }
+
+        window.onload = init;
+    </script>
+</body>
+</html>
