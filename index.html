@@ -524,6 +524,10 @@
                     } else if (gameType === 'ticket') {
                         window.state.ticketUsers = entries.map(e => ({ id: e.id, name: e.nick, race: e.race, ticketNumber: e.prediction || Math.floor(10000 + Math.random() * 90000).toString() }));
                         window.updateTicketUserList();
+                    } else if (gameType === 'war') {
+                        // WAR LISTENER (Şimdilik boş, sonra doldurulacak)
+                        window.state.warUsers = entries.map(e => ({ id: e.id, name: e.nick, race: e.race }));
+                        window.updateWarUserList();
                     }
                 });
             }
@@ -665,6 +669,7 @@
                  window.state.mirrorUsers = []; window.state.eliminatedMirrorUsers = [];
                  window.state.raffleUsers = []; window.state.eliminatedRaffleUsers = [];
                  window.state.ticketUsers = []; window.state.ticketWinner = null;
+                 window.state.warUsers = []; 
                  window.state.winners = [];
                  window.updateUserList(); window.updateWheelUserList(); window.updateLuckyUserList(); window.updateDiceUserList();
                  window.updateMirrorUserList(); window.updateRaffleUserList(); window.updateTicketUserList();
@@ -721,6 +726,9 @@
                 <button id="tab-ticket" onclick="switchTab('ticket')" class="tab-btn px-4 py-2 rounded-lg text-[12px] font-bold uppercase transition shrink-0 text-amber-300">BİLET OYUNU 🎫</button>
                 <button id="tab-lucky" onclick="switchTab('lucky')" class="tab-btn px-4 py-2 rounded-lg text-[12px] font-bold uppercase transition shrink-0">ŞANS TOPU🎡</button>
                 <button id="tab-dice" onclick="switchTab('dice')" class="tab-btn px-4 py-2 rounded-lg text-[12px] font-bold uppercase transition shrink-0">ZAR OYUNU 🎲</button>
+                <!-- NEW BUTTON ADDED HERE -->
+                <button id="tab-war" onclick="switchTab('war')" class="tab-btn px-4 py-2 rounded-lg text-[12px] font-bold uppercase transition shrink-0 text-red-500">IRK SAVAŞI ⚔️</button>
+                
                 <button id="tab-pool" onclick="switchTab('pool')" class="tab-btn px-4 py-2 rounded-lg text-[12px] font-bold uppercase transition shrink-0 text-sky-400">HAVUZ YÖNETİMİ 🏊</button>
                 <button id="tab-winners" onclick="switchTab('winners')" class="tab-btn px-4 py-2 rounded-lg text-[12px] font-bold uppercase transition shrink-0">ARŞİV📖</button>
                 <button id="tab-stats" onclick="switchTab('stats')" class="tab-btn px-4 py-2 rounded-lg text-[12px] font-bold uppercase transition shrink-0 text-emerald-400">İSTATİSTİK 📊</button>
@@ -924,6 +932,50 @@
                 <div class="flex gap-4 mb-8 relative flex-wrap justify-center shrink-0"><div id="dice-1" class="dice-container"></div><div id="dice-2" class="dice-container"></div><div id="dice-3" class="dice-container"></div><div id="dice-4" class="dice-container"></div><div id="dice-5" class="dice-container"></div></div>
                 <div id="dice-total-display" class="text-4xl font-black text-white uppercase mb-4 opacity-0 shrink-0">TOPLAM: <span id="dice-sum" class="text-indigo-400">0</span></div>
                 <div id="dice-result-panel" class="w-full max-w-2xl bg-slate-900/80 rounded-3xl p-6 border border-indigo-500/20 opacity-0 transition-all transform translate-y-4 overflow-hidden max-h-[300px] flex flex-col"><div id="dice-winners-display" class="overflow-y-auto pr-2 custom-scrollbar grid grid-cols-1 gap-2"></div><div id="dice-final-announcement" class="mt-4 pt-4 border-t border-white/10 text-center font-black text-xl text-indigo-400 uppercase italic"></div></div>
+            </section>
+        </main>
+
+        <!-- --- WAR PAGE (NEW) --- -->
+        <main id="war-page" class="flex-1 hidden-page grid grid-cols-1 lg:grid-cols-12 gap-4 overflow-hidden">
+            <aside class="lg:col-span-3 glass-panel rounded-2xl p-4 flex flex-col overflow-hidden">
+                <div class="flex justify-between items-center mb-3">
+                    <h2 class="font-bold text-xs uppercase text-red-400 italic">SAVAŞ KATILIMCILARI</h2>
+                    <span id="war-user-count" class="text-red-400 text-xs font-mono">0</span>
+                </div>
+                <div id="war-user-list" class="flex-1 overflow-y-auto space-y-1.5 pr-2 custom-scrollbar"></div>
+                <div class="mt-4 pt-4 border-t border-white/5 space-y-2">
+                    <button id="war-start-btn" onclick="toggleWarJoin(true)" class="w-full bg-red-600 text-white font-black py-3 rounded-lg transition uppercase text-[10px]">KATILIMI AÇ</button>
+                    <button id="war-stop-btn" onclick="toggleWarJoin(false)" class="hidden w-full bg-slate-600 text-white font-black py-3 rounded-lg transition uppercase text-[10px]">KATILIMI KAPAT</button>
+                    <button onclick="window.finishGameSession('war')" class="w-full bg-rose-600 hover:bg-rose-500 text-white font-black py-3 rounded-lg transition uppercase border border-white/10 text-[10px] mt-2 shadow-[0_0_15px_rgba(225,29,72,0.4)]">ÇEKİLİŞİ TAMAMLA & LİSTEYİ SİL</button>
+                </div>
+            </aside>
+            <section class="lg:col-span-9 glass-panel rounded-2xl p-6 flex flex-col items-center justify-center relative overflow-hidden bg-gradient-to-br from-blue-900/20 to-red-900/20">
+                <div class="flex items-center justify-center gap-8 w-full h-full">
+                    
+                    <!-- Human Side -->
+                    <div class="flex flex-col items-center group cursor-pointer transition-all hover:scale-105">
+                        <div class="w-64 h-80 rounded-2xl overflow-hidden border-4 border-blue-500/50 shadow-[0_0_30px_rgba(59,130,246,0.3)] relative">
+                             <img src="https://dwar.gen.tr/images/data/npcs/igrok_hum.jpg" class="w-full h-full object-cover">
+                             <div class="absolute bottom-0 left-0 w-full bg-gradient-to-t from-blue-900 to-transparent p-4 text-center">
+                                <h3 class="text-2xl font-black text-white uppercase italic tracking-widest drop-shadow-lg">İNSANLAR</h3>
+                             </div>
+                        </div>
+                    </div>
+
+                    <!-- VS Badge -->
+                    <div class="text-6xl font-black text-white italic opacity-50">VS</div>
+
+                    <!-- Magron Side -->
+                    <div class="flex flex-col items-center group cursor-pointer transition-all hover:scale-105">
+                         <div class="w-64 h-80 rounded-2xl overflow-hidden border-4 border-red-500/50 shadow-[0_0_30px_rgba(239,68,68,0.3)] relative">
+                             <img src="https://dwar.gen.tr/images/data/npcs/igrok_mag.jpg" class="w-full h-full object-cover">
+                             <div class="absolute bottom-0 left-0 w-full bg-gradient-to-t from-red-900 to-transparent p-4 text-center">
+                                <h3 class="text-2xl font-black text-white uppercase italic tracking-widest drop-shadow-lg">MAGRONLAR</h3>
+                             </div>
+                        </div>
+                    </div>
+
+                </div>
             </section>
         </main>
         
@@ -1389,6 +1441,9 @@
             mirrorValues: [], mirrorSelections: 0, mirrorCurrentTotal: 0, mirrorCount: 15, mirrorSelectionIndices: [],
             isRaffleJoinEnabled: false, raffleUsers: [], eliminatedRaffleUsers: [], isRaffleRunning: false,
             isTicketJoinEnabled: false, ticketUsers: [], ticketWinner: null, 
+            // WAR STATE ADDED
+            isWarJoinEnabled: false, warUsers: [], warWinner: null,
+            
             winners: [],
             allStats: [], 
             rewardPool: [], 
@@ -1560,8 +1615,8 @@
         }
 
         function switchTab(tab) {
-            const pages = { game: 'game-page', mirror: 'mirror-page', wheel: 'wheel-page', lucky: 'lucky-page', dice: 'dice-page', winners: 'winners-page', config: 'config-page', raffle: 'raffle-page', ticket: 'ticket-page', stats: 'stats-page', pool: 'pool-page' };
-            const btns = { game: 'tab-game', mirror: 'tab-mirror', wheel: 'tab-wheel', lucky: 'tab-lucky', dice: 'tab-dice', winners: 'tab-winners', config: 'tab-config', raffle: 'tab-raffle', ticket: 'tab-ticket', stats: 'tab-stats', pool: 'tab-pool' };
+            const pages = { game: 'game-page', mirror: 'mirror-page', wheel: 'wheel-page', lucky: 'lucky-page', dice: 'dice-page', winners: 'winners-page', config: 'config-page', raffle: 'raffle-page', ticket: 'ticket-page', stats: 'stats-page', pool: 'pool-page', war: 'war-page' };
+            const btns = { game: 'tab-game', mirror: 'tab-mirror', wheel: 'tab-wheel', lucky: 'tab-lucky', dice: 'tab-dice', winners: 'tab-winners', config: 'tab-config', raffle: 'tab-raffle', ticket: 'tab-ticket', stats: 'tab-stats', pool: 'tab-pool', war: 'tab-war' };
             Object.keys(pages).forEach(key => {
                 const p = document.getElementById(pages[key]);
                 const b = document.getElementById(btns[key]);
@@ -1859,6 +1914,23 @@
             document.getElementById('reveal-winner-btn').classList.add('hidden');
             fireConfetti();
             saveToArchive(wName, "BİLET", `No: ${state.ticketWinner.ticketNumber}`, "Büyük İkramiye", state.ticketWinner.race);
+        }
+
+        // --- WAR LOGIC (NEW - STUB) ---
+        function toggleWarJoin(e) {
+            state.isWarJoinEnabled = e;
+            document.getElementById('war-start-btn').classList.toggle('hidden', e);
+            document.getElementById('war-stop-btn').classList.toggle('hidden', !e);
+            if(window.updateFirestoreGameState) window.updateFirestoreGameState('war', e ? 'open' : 'closed');
+        }
+
+        window.updateWarUserList = function() {
+            document.getElementById('war-user-count').innerText = state.warUsers.length;
+            const list = document.getElementById('war-user-list');
+            list.innerHTML = '';
+            state.warUsers.forEach(u => {
+                 list.innerHTML += `<div class="p-2 bg-slate-800 rounded-lg text-[20px] font-bold">${u.name}</div>`;
+            });
         }
 
         // --- BOX LOGIC ---
@@ -2272,4 +2344,3 @@
     </script>
 </body>
 </html>
-
