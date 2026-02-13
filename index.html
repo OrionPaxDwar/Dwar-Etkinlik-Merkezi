@@ -543,12 +543,9 @@
                         window.state.ticketUsers = entries.map(e => ({ id: e.id, name: e.nick, race: e.race, ticketNumber: e.prediction || Math.floor(10000 + Math.random() * 90000).toString() }));
                         window.updateTicketUserList();
                     } else if (gameType === 'war') {
-                        // WAR LISTENER
-                        // War liste güncellemesi artık senkronize çalışacak
-                        // Sadece manuel girişleri buraya ekliyoruz, diğerleri syncWarUsers'dan gelecek
+                        // WAR LISTENER (UPDATED FOR DIRECT ENTRY)
                         const manualWarEntries = entries.map(e => ({ id: e.id, name: e.nick, race: e.race }));
-                        // Mevcut manuel girişleri koruyarak güncelleme yapmalıyız veya tamamen buraya bırakmalıyız
-                        // Şimdilik sadece syncWarUsers fonksiyonuna güveneceğiz.
+                        window.state.manualWarUsers = manualWarEntries; // Harici katılımcıları ayrı bir dizide tut
                     }
                     
                     // GLOBAL SYNC: Herhangi bir liste güncellendiğinde Savaş listesini de güncelle
@@ -692,7 +689,7 @@
                  window.state.mirrorUsers = []; window.state.eliminatedMirrorUsers = [];
                  window.state.raffleUsers = []; window.state.eliminatedRaffleUsers = [];
                  window.state.ticketUsers = []; window.state.ticketWinner = null;
-                 window.state.warUsers = []; window.state.eliminatedWarUsers = [];
+                 window.state.warUsers = []; window.state.eliminatedWarUsers = []; window.state.manualWarUsers = [];
                  window.state.winners = [];
                  window.updateUserList(); window.updateWheelUserList(); window.updateLuckyUserList(); window.updateDiceUserList();
                  window.updateMirrorUserList(); window.updateRaffleUserList(); window.updateTicketUserList(); window.updateWarUserList();
@@ -974,33 +971,33 @@
             </aside>
             <section class="lg:col-span-9 glass-panel rounded-2xl p-6 flex flex-col items-center relative overflow-hidden bg-gradient-to-br from-blue-900/20 to-red-900/20">
                 
-                <!-- TOP HEADER WITH SMALL IMAGES -->
+                <!-- TOP HEADER WITH LARGER IMAGES -->
                 <div class="w-full flex justify-center items-center gap-8 mb-6 shrink-0 bg-slate-900/30 p-2 rounded-2xl border border-white/5">
-                    <!-- Human Small -->
-                    <div class="w-24 h-24 rounded-2xl overflow-hidden border-2 border-blue-500/50 shadow-[0_0_15px_rgba(59,130,246,0.3)] relative group">
+                    <!-- Human Large -->
+                    <div class="w-40 h-40 rounded-2xl overflow-hidden border-2 border-blue-500/50 shadow-[0_0_15px_rgba(59,130,246,0.3)] relative group">
                         <img src="https://dwar.gen.tr/images/data/npcs/igrok_hum.jpg" class="w-full h-full object-cover">
                         <div class="absolute bottom-0 left-0 w-full bg-blue-900/80 text-[10px] text-center font-bold text-white uppercase">İNSANLAR</div>
                     </div>
 
                     <div class="text-4xl font-black text-white italic opacity-50">VS</div>
 
-                    <!-- Magron Small -->
-                    <div class="w-24 h-24 rounded-2xl overflow-hidden border-2 border-red-500/50 shadow-[0_0_15px_rgba(239,68,68,0.3)] relative group">
+                    <!-- Magron Large -->
+                    <div class="w-40 h-40 rounded-2xl overflow-hidden border-2 border-red-500/50 shadow-[0_0_15px_rgba(239,68,68,0.3)] relative group">
                          <img src="https://dwar.gen.tr/images/data/npcs/igrok_mag.jpg" class="w-full h-full object-cover">
                          <div class="absolute bottom-0 left-0 w-full bg-red-900/80 text-[10px] text-center font-bold text-white uppercase">MAGRONLAR</div>
                     </div>
                 </div>
 
-                <!-- MAIN ACTION AREA (SPLIT SCREEN) -->
+                <!-- MAIN ACTION AREA (SPLIT SCREEN) - SMALLER CONTROLS -->
                 <div class="flex-1 w-full grid grid-cols-2 gap-6 overflow-hidden">
                     
                     <!-- Human Column -->
                     <div class="flex flex-col h-full bg-slate-900/40 border border-blue-500/20 rounded-xl p-4">
                         <div class="flex items-center gap-3 mb-4">
-                            <input type="number" id="war-hum-count" value="1" min="1" class="w-20 bg-slate-800 border-2 border-blue-500/50 rounded-lg py-3 text-center text-white text-xl font-bold outline-none focus:border-blue-400">
+                            <input type="number" id="war-hum-count" value="1" min="1" class="w-20 bg-slate-800 border-2 border-blue-500/50 rounded-lg py-2 text-center text-white text-sm font-bold outline-none focus:border-blue-400">
                             <label class="text-sm text-blue-300 font-bold uppercase">Kişi Seç</label>
                         </div>
-                        <button onclick="drawWarWinners('human')" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-black py-6 rounded-xl transition uppercase text-xl shadow-[0_0_20px_rgba(37,99,235,0.4)] mb-4">İNSAN ÇEKİLİŞİ ⚔️</button>
+                        <button onclick="drawWarWinners('human')" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-black py-3 rounded-xl transition uppercase text-sm shadow-[0_0_20px_rgba(37,99,235,0.4)] mb-4">İNSAN ÇEKİLİŞİ ⚔️</button>
                         
                         <div class="flex-1 overflow-y-auto custom-scrollbar bg-slate-900/50 rounded-lg p-2 border border-blue-500/10">
                             <h4 class="text-xs text-blue-400 font-bold uppercase mb-2 sticky top-0 bg-slate-900/90 p-1">SONUÇLAR</h4>
@@ -1011,10 +1008,10 @@
                     <!-- Magron Column -->
                     <div class="flex flex-col h-full bg-slate-900/40 border border-red-500/20 rounded-xl p-4">
                         <div class="flex items-center gap-3 mb-4">
-                            <input type="number" id="war-mag-count" value="1" min="1" class="w-20 bg-slate-800 border-2 border-red-500/50 rounded-lg py-3 text-center text-white text-xl font-bold outline-none focus:border-red-400">
+                            <input type="number" id="war-mag-count" value="1" min="1" class="w-20 bg-slate-800 border-2 border-red-500/50 rounded-lg py-2 text-center text-white text-sm font-bold outline-none focus:border-red-400">
                             <label class="text-sm text-red-300 font-bold uppercase">Kişi Seç</label>
                         </div>
-                        <button onclick="drawWarWinners('magron')" class="w-full bg-red-600 hover:bg-red-500 text-white font-black py-6 rounded-xl transition uppercase text-xl shadow-[0_0_20px_rgba(220,38,38,0.4)] mb-4">MAGRON ÇEKİLİŞİ 🔥</button>
+                        <button onclick="drawWarWinners('magron')" class="w-full bg-red-600 hover:bg-red-500 text-white font-black py-3 rounded-xl transition uppercase text-sm shadow-[0_0_20px_rgba(220,38,38,0.4)] mb-4">MAGRON ÇEKİLİŞİ 🔥</button>
                         
                         <div class="flex-1 overflow-y-auto custom-scrollbar bg-slate-900/50 rounded-lg p-2 border border-red-500/10">
                             <h4 class="text-xs text-red-400 font-bold uppercase mb-2 sticky top-0 bg-slate-900/90 p-1">SONUÇLAR</h4>
@@ -1493,7 +1490,7 @@
             isRaffleJoinEnabled: false, raffleUsers: [], eliminatedRaffleUsers: [], isRaffleRunning: false,
             isTicketJoinEnabled: false, ticketUsers: [], ticketWinner: null, 
             // WAR STATE UPDATED
-            isWarJoinEnabled: false, warUsers: [], warWinner: null, eliminatedWarUsers: [], warRewardsConfig: [],
+            isWarJoinEnabled: false, warUsers: [], warWinner: null, eliminatedWarUsers: [], warRewardsConfig: [], manualWarUsers: [],
             
             winners: [],
             allStats: [], 
@@ -1948,16 +1945,21 @@
         window.syncWarUsers = function() {
             const combined = new Map(); // Use Map to deduplicate by ID
             
-            // Add existing manually added war users
+            // 1. Add DIRECT War Entries (From database listener manualWarUsers)
+            if (window.state.manualWarUsers) {
+                 window.state.manualWarUsers.forEach(u => combined.set(u.id, u));
+            }
+
+            // 2. Add existing manually added war users (from legacy manual additions if any)
             state.warUsers.forEach(u => combined.set(u.id, u));
             
-            // Add Box Game Users
+            // 3. Add Box Game Users
             state.users.forEach(u => combined.set(u.id, u));
             
-            // Add Wheel Users
+            // 4. Add Wheel Users
             state.wheelUsers.forEach(u => combined.set(u.id, u));
             
-            // Add Mirror Users
+            // 5. Add Mirror Users
             state.mirrorUsers.forEach(u => combined.set(u.id, u));
             
             state.warUsers = Array.from(combined.values());
@@ -2025,12 +2027,12 @@
 
                 const colorClass = raceType === 'human' ? 'text-blue-400' : 'text-red-400';
                 
-                // Create HTML with "Determine Reward" button
+                // Create HTML with "Determine Reward" button - TEXT SIZE INCREASED TO 4XL
                 const rowId = `war-res-${w.id}`;
                 resultContainer.innerHTML += `
-                    <div id="${rowId}" class="font-bold ${colorClass} mb-1 border-b border-white/5 pb-1 flex justify-between items-center">
-                        <span class="truncate mr-2">${w.name}</span> 
-                        <button onclick="revealWarReward('${w.id}', '${w.name}', '${w.race}', '${rowId}')" class="war-reward-btn">🎲 ÖDÜLÜ BELİRLE</button>
+                    <div id="${rowId}" class="font-black ${colorClass} mb-4 border-b border-white/5 pb-2 flex flex-col justify-center items-center text-center">
+                        <span class="truncate text-4xl italic tracking-tighter drop-shadow-lg">${w.name}</span> 
+                        <button onclick="revealWarReward('${w.id}', '${w.name}', '${w.race}', '${rowId}')" class="war-reward-btn mt-2">🎲 ÖDÜLÜ BELİRLE</button>
                     </div>`;
             });
             
@@ -2041,11 +2043,13 @@
         window.revealWarReward = function(userId, userName, userRace, rowId) {
             const reward = window.getWeightedWarReward();
             const container = document.getElementById(rowId);
+            const colorClass = userRace.toLowerCase().includes('insan') ? 'text-blue-400' : 'text-red-400';
+
             if(container) {
-                // Replace button with reward text
+                // Replace button with reward text - KEEP NAME LARGE
                 container.innerHTML = `
-                    <span class="truncate mr-2">${userName}</span> 
-                    <span class="text-yellow-400 text-[10px] ml-2 italic font-black animate-pulse">${reward}</span>
+                    <span class="truncate text-4xl italic tracking-tighter drop-shadow-lg ${colorClass}">${userName}</span> 
+                    <span class="text-yellow-400 text-sm mt-2 italic font-black animate-pulse">${reward}</span>
                 `;
             }
             // Save to Archive/Stats
@@ -2386,7 +2390,7 @@
             // Also refresh large list if active
             if(document.getElementById('tab-winners').classList.contains('active')) {
                 renderLargeWinnersList();
-            }
+                 }
             if(window.updateStatInFirestore) {
                 window.updateStatInFirestore(n, true, { game: t, detail: d, reward: r }, race);
             }
@@ -2466,5 +2470,6 @@
     </script>
 </body>
 </html>
+
 
 
