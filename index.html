@@ -1080,7 +1080,7 @@
             <div class="flex justify-between items-center mb-4">
                 <h2 class="text-2xl font-black text-sky-400 uppercase tracking-wider">KAZANIM ARŞİVİ</h2>
                 <div class="flex gap-2">
-                    <button onclick="filterWinners('war')" class="bg-red-900/50 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-lg text-xs uppercase border border-red-500/20">SADECE SAVAŞ</button>
+                    <!-- SADECE SAVAŞ BUTONU KALDIRILDI -->
                     <button onclick="filterWinners('all')" class="bg-slate-700 hover:bg-slate-600 text-white font-bold py-2 px-4 rounded-lg text-xs uppercase">TÜMÜ</button>
                     <button onclick="exportWinners()" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2 px-4 rounded-lg text-xs uppercase flex items-center gap-2">DIŞA AKTAR (.TXT)</button>
                 </div>
@@ -2027,12 +2027,12 @@
 
                 const colorClass = raceType === 'human' ? 'text-blue-400' : 'text-red-400';
                 
-                // Create HTML with "Determine Reward" button - TEXT SIZE INCREASED TO 4XL
+                // --- MODIFIED LAYOUT: SIDE-BY-SIDE (FLEX ROW) ---
                 const rowId = `war-res-${w.id}`;
                 resultContainer.innerHTML += `
-                    <div id="${rowId}" class="font-black ${colorClass} mb-4 border-b border-white/5 pb-2 flex flex-col justify-center items-center text-center">
-                        <span class="truncate text-4xl italic tracking-tighter drop-shadow-lg">${w.name}</span> 
-                        <button onclick="revealWarReward('${w.id}', '${w.name}', '${w.race}', '${rowId}')" class="war-reward-btn mt-2">🎲 ÖDÜLÜ BELİRLE</button>
+                    <div id="${rowId}" class="w-full bg-slate-800/40 p-3 rounded-xl border border-white/5 mb-2 flex flex-row items-center justify-between gap-4 transition-all">
+                        <div class="font-black ${colorClass} text-2xl italic tracking-tighter drop-shadow-lg truncate flex-1 text-left">${w.name}</div>
+                        <button onclick="revealWarReward('${w.id}', '${w.name}', '${w.race}', '${rowId}')" class="war-reward-btn shrink-0">🎲 ÖDÜLÜ BELİRLE</button>
                     </div>`;
             });
             
@@ -2042,14 +2042,26 @@
 
         window.revealWarReward = function(userId, userName, userRace, rowId) {
             const reward = window.getWeightedWarReward();
+            const imgUrl = findRewardImage(reward); // Find image if exists in pool
             const container = document.getElementById(rowId);
             const colorClass = userRace.toLowerCase().includes('insan') ? 'text-blue-400' : 'text-red-400';
 
             if(container) {
-                // Replace button with reward text - KEEP NAME LARGE
+                // Construct HTML with Image if available - SIDE BY SIDE
+                let rewardHtml = '';
+                if(imgUrl) {
+                    rewardHtml = `<div class="flex items-center gap-2 animate-pulse">
+                                    <img src="${imgUrl}" class="w-8 h-8 object-cover rounded bg-slate-900 border border-white/10">
+                                    <span class="text-yellow-400 text-sm italic font-black">${reward}</span>
+                                  </div>`;
+                } else {
+                    rewardHtml = `<span class="text-yellow-400 text-sm italic font-black animate-pulse">${reward}</span>`;
+                }
+
+                // Replace content - KEEP SIDE BY SIDE
                 container.innerHTML = `
-                    <span class="truncate text-4xl italic tracking-tighter drop-shadow-lg ${colorClass}">${userName}</span> 
-                    <span class="text-yellow-400 text-sm mt-2 italic font-black animate-pulse">${reward}</span>
+                    <div class="font-black ${colorClass} text-2xl italic tracking-tighter drop-shadow-lg truncate flex-1 text-left">${userName}</div>
+                    ${rewardHtml}
                 `;
             }
             // Save to Archive/Stats
@@ -2388,7 +2400,7 @@
         function saveToArchive(n, t, d, r, race) { 
             state.winners.push({ name: n, type: t, detail: d, reward: r, time: new Date().toLocaleTimeString() }); 
             // Also refresh large list if active
-            if(document.getElementById('tab-winners').classList.contains('active')) {
+           if(document.getElementById('tab-winners').classList.contains('active')) {
                 renderLargeWinnersList();
                  }
             if(window.updateStatInFirestore) {
@@ -2470,6 +2482,4 @@
     </script>
 </body>
 </html>
-
-
 
