@@ -356,6 +356,15 @@
             transform: scale(1.05);
             box-shadow: 0 0 15px rgba(245, 158, 11, 0.6);
         }
+
+        .clickable-winner {
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .clickable-winner:hover {
+            transform: scale(1.05);
+            text-shadow: 0 0 20px rgba(255,255,255,0.8);
+        }
     </style>
 </head>
 <body>
@@ -517,12 +526,13 @@
                         
                         if (!seenNicks.has(normalizedNick)) {
                             seenNicks.add(normalizedNick);
-                            entries.push({ id: doc.id, ...data });
+                            // Not ve Tahmin verisi çekiliyor (Kutu ve Ayna için)
+                            entries.push({ id: doc.id, ...data, note: data.note || data.prediction || "Not Yok" });
                         }
                     });
 
                     if (gameType === 'game') { 
-                        window.state.users = entries.map(e => ({ id: e.id, name: e.nick, race: e.race }));
+                        window.state.users = entries.map(e => ({ id: e.id, name: e.nick, race: e.race, note: e.note }));
                         window.updateUserList();
                     } else if (gameType === 'wheel') {
                         window.state.wheelUsers = entries.map(e => ({ id: e.id, name: e.nick, race: e.race }));
@@ -534,7 +544,7 @@
                         window.state.diceUsers = entries.map(e => ({ id: e.id, name: e.nick, race: e.race, target: parseInt(e.prediction) || 0 }));
                         window.updateDiceUserList();
                     } else if (gameType === 'mirror') {
-                        window.state.mirrorUsers = entries.map(e => ({ id: e.id, name: e.nick, race: e.race }));
+                        window.state.mirrorUsers = entries.map(e => ({ id: e.id, name: e.nick, race: e.race, note: e.note }));
                         window.updateMirrorUserList();
                     } else if (gameType === 'raffle') {
                         window.state.raffleUsers = entries.map(e => ({ id: e.id, name: e.nick, race: e.race }));
@@ -767,6 +777,7 @@
                     <h2 class="font-bold text-xs uppercase text-slate-400 italic">KUTU KATILIMCILARI</h2>
                     <span id="user-count" class="text-sky-400 text-xs font-mono">0</span>
                 </div>
+                <!-- User list now clickable for notes -->
                 <div id="user-list" class="flex-1 overflow-y-auto space-y-1.5 pr-2 custom-scrollbar"></div>
                 <div class="mt-4 pt-4 border-t border-white/5 space-y-2">
                     <button id="start-btn" onclick="toggleJoin(true)" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-black py-3 rounded-lg transition uppercase text-[10px]">KATILIMI AÇ</button>
@@ -780,7 +791,9 @@
             <section class="lg:col-span-9 glass-panel rounded-2xl p-4 flex flex-col relative overflow-hidden">
                 <div id="winner-banner" class="mb-4 text-center opacity-0 transition-all transform -translate-y-4">
                     <h3 class="text-sky-400 text-[10px] font-bold tracking-widest uppercase mb-1">ŞANSLI OYUNCU</h3>
-                    <div id="winner-name" class="text-3xl font-black text-white italic tracking-tighter">-</div>
+                    <!-- Winner name is clickable for notes -->
+                    <div id="winner-name" onclick="showCurrentWinnerNote('game')" class="text-3xl font-black text-white italic tracking-tighter clickable-winner cursor-pointer hover:text-sky-300">-</div>
+                    <div class="text-[9px] text-slate-500 mt-1">Notu görmek için isme tıklayın</div>
                 </div>
                 <div id="box-grid" class="flex-1 overflow-y-auto pr-1 custom-scrollbar"></div>
                 <div id="post-box-controls" class="absolute bottom-10 left-0 right-0 flex justify-center opacity-0 pointer-events-none transition-all">
@@ -796,6 +809,7 @@
                     <h2 class="font-bold text-xs uppercase text-purple-400 italic">AYNA KATILIMCILARI</h2>
                     <span id="mirror-user-count" class="text-purple-400 text-xs font-mono">0</span>
                 </div>
+                <!-- Mirror list clickable -->
                 <div id="mirror-user-list" class="flex-1 overflow-y-auto space-y-1.5 pr-2 custom-scrollbar"></div>
                 <div class="mt-4 pt-4 border-t border-white/5 space-y-2">
                     <button id="mirror-start-btn" onclick="toggleMirrorJoin(true)" class="w-full bg-purple-600 text-white font-black py-3 rounded-lg transition uppercase text-[10px]">KATILIMI AÇ</button>
@@ -809,7 +823,9 @@
                     <div class="lg:col-span-8 flex flex-col">
                         <div id="mirror-winner-display" class="mb-4 text-center opacity-0 transition-all">
                             <h3 class="text-purple-400 text-[10px] font-bold tracking-widest uppercase mb-1">SIRADAKİ OYUNCU</h3>
-                            <div id="mirror-winner-name" class="text-3xl font-black text-white italic tracking-tighter">BEKLENİYOR</div>
+                            <!-- Mirror winner clickable -->
+                            <div id="mirror-winner-name" onclick="showCurrentWinnerNote('mirror')" class="text-3xl font-black text-white italic tracking-tighter clickable-winner cursor-pointer hover:text-purple-300">BEKLENİYOR</div>
+                            <div class="text-[9px] text-slate-500 mt-1">Notu görmek için isme tıklayın</div>
                             <div id="mirror-selection-count" class="text-xs text-yellow-500 font-bold mt-1">HAK: 3 / 3</div>
                         </div>
                         <div id="mirror-grid" class="grid grid-cols-5 gap-3"></div>
@@ -1123,6 +1139,19 @@
                 <div class="flex gap-4 mb-4 text-xs font-bold text-slate-400 uppercase"><span id="stats-detail-wins">Toplam Zafer: 0</span><span id="stats-detail-parts">Toplam Katılım: 0</span></div>
                 <div class="text-[10px] text-slate-500 uppercase font-bold mb-2 border-b border-white/10 pb-1">KAZANMA GEÇMİŞİ</div>
                 <div id="stats-history-list" class="h-64 overflow-y-auto custom-scrollbar space-y-2"></div>
+            </div>
+        </div>
+
+        <!-- NEW: Player Note Modal -->
+        <div id="note-modal" class="bulk-modal">
+            <div class="bulk-content border-t-2 border-sky-500">
+                <button onclick="closeNoteModal()" class="rules-close">✕</button>
+                <h2 id="note-player-name" class="text-2xl font-black uppercase text-sky-400 mb-4 tracking-widest">OYUNCU ADI</h2>
+                <div class="p-4 bg-slate-900 rounded-xl border border-white/10">
+                    <p class="text-[10px] text-slate-500 font-bold uppercase mb-2">OYUNCU NOTU / TAHMİNİ:</p>
+                    <p id="note-content" class="text-xl font-bold text-white italic break-words">...</p>
+                </div>
+                <div class="mt-4 text-[10px] text-slate-500 text-center italic">Bu not oyuncu tarafından panel üzerinden girilmiştir.</div>
             </div>
         </div>
 
@@ -1649,6 +1678,40 @@
         function openBulkModal() { document.getElementById('bulk-modal').classList.add('active'); document.getElementById('bulk-input').focus(); }
         function closeBulkModal() { document.getElementById('bulk-modal').classList.remove('active'); }
         
+        // --- NOTE MODAL LOGIC ---
+        function closeNoteModal() { document.getElementById('note-modal').classList.remove('active'); }
+        
+        function showPlayerNote(gameType, userId) {
+            let user = null;
+            if (gameType === 'game') {
+                user = state.users.find(u => u.id === userId);
+            } else if (gameType === 'mirror') {
+                user = state.mirrorUsers.find(u => u.id === userId);
+            }
+
+            if (user) {
+                document.getElementById('note-player-name').innerText = user.name;
+                // note alanı veya prediction alanı, veya yoksa mesaj
+                const noteText = user.note || user.prediction || "Oyuncu bir not veya tahmin bırakmadı.";
+                document.getElementById('note-content').innerText = noteText;
+                document.getElementById('note-modal').classList.add('active');
+            }
+        }
+
+        function showCurrentWinnerNote(gameType) {
+            let winner = null;
+            if (gameType === 'game' && state.currentWinner) {
+                winner = state.currentWinner;
+            } else if (gameType === 'mirror' && state.mirrorWinner) {
+                winner = state.mirrorWinner;
+            }
+            
+            if (winner) {
+                // Re-find user in main list to get latest note in case it updated
+                showPlayerNote(gameType, winner.id);
+            }
+        }
+
         function toggleRaffleJoin(e) { 
             state.isRaffleJoinEnabled = e; 
             document.getElementById('raffle-start-btn').classList.toggle('hidden', e); 
@@ -1772,7 +1835,17 @@
             document.getElementById('mirror-stop-btn').classList.toggle('hidden', !e);
             if(window.updateFirestoreGameState) window.updateFirestoreGameState('mirror', e ? 'open' : 'closed');
         }
-        window.updateMirrorUserList = function(activeId) { document.getElementById('mirror-user-count').innerText = state.mirrorUsers.length; const list = document.getElementById('mirror-user-list'); list.innerHTML = ''; state.mirrorUsers.forEach(u => { const isE = state.eliminatedMirrorUsers.includes(u.id); list.innerHTML += `<div class="p-2 bg-slate-800 rounded-lg text-[20px] font-bold ${isE?'opacity-30 user-winner':''} ${activeId===u.id?'ring-1 ring-purple-400':''}">${u.name}</div>`; }); }
+        
+        window.updateMirrorUserList = function(activeId) { 
+            document.getElementById('mirror-user-count').innerText = state.mirrorUsers.length; 
+            const list = document.getElementById('mirror-user-list'); 
+            list.innerHTML = ''; 
+            state.mirrorUsers.forEach(u => { 
+                const isE = state.eliminatedMirrorUsers.includes(u.id); 
+                // Updated to handle click for notes
+                list.innerHTML += `<div onclick="showPlayerNote('mirror', '${u.id}')" class="p-2 bg-slate-800 rounded-lg text-[20px] font-bold cursor-pointer hover:bg-slate-700 ${isE?'opacity-30 user-winner':''} ${activeId===u.id?'ring-1 ring-purple-400':''}">${u.name}</div>`; 
+            }); 
+        }
         
         function createMirrorGrid() { 
             const grid = document.getElementById('mirror-grid'); grid.innerHTML = ''; 
@@ -2076,13 +2149,15 @@
             document.getElementById('stop-btn').classList.toggle('hidden', !e);
             if(window.updateFirestoreGameState) window.updateFirestoreGameState('game', e ? 'open' : 'closed');
         }
+
         window.updateUserList = function(a) { 
             document.getElementById('user-count').innerText = state.users.length; 
             const list = document.getElementById('user-list'); 
             list.innerHTML = ''; 
             state.users.forEach(u => { 
                 const isE = state.eliminatedUsers.includes(u.id); 
-                list.innerHTML += `<div class="p-2 bg-slate-800 rounded-lg text-[20px] font-bold ${isE?'opacity-30 user-winner':''} ${a===u.id?'ring-1 ring-sky-400':''}">${u.name}</div>`; 
+                // Updated to handle click for notes
+                list.innerHTML += `<div onclick="showPlayerNote('game', '${u.id}')" class="p-2 bg-slate-800 rounded-lg text-[20px] font-bold cursor-pointer hover:bg-slate-700 ${isE?'opacity-30 user-winner':''} ${a===u.id?'ring-1 ring-sky-400':''}">${u.name}</div>`; 
             }); 
         }
         
@@ -2349,7 +2424,7 @@
             document.getElementById('lucky-result-panel').classList.remove('opacity-0', 'translate-y-4');
         }
 
-        // --- DICE LOGIC ---
+       // --- DICE LOGIC ---
         function toggleDiceJoin(e) { 
             state.isDiceJoinEnabled = e; 
             document.getElementById('dice-start-btn').classList.toggle('hidden', e); 
@@ -2483,6 +2558,3 @@
     </script>
 </body>
 </html>
-
-
-
