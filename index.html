@@ -365,6 +365,55 @@
             transform: scale(1.05);
             text-shadow: 0 0 20px rgba(255,255,255,0.8);
         }
+
+        /* CHAT STYLES */
+        .chat-bubble {
+            background: rgba(30, 41, 59, 0.8);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 12px;
+            margin-bottom: 12px;
+            position: relative;
+            animation: slideInChat 0.3s ease-out forwards;
+        }
+
+        .chat-bubble.admin {
+            border-color: rgba(56, 189, 248, 0.4);
+            background: rgba(15, 23, 42, 0.9);
+        }
+
+        .chat-bubble.player {
+            border-color: rgba(245, 158, 11, 0.2);
+        }
+
+        .chat-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 4px;
+        }
+
+        .chat-name {
+            font-weight: bold;
+            font-size: 14px;
+        }
+
+        .chat-time {
+            font-size: 10px;
+            color: #64748b;
+        }
+
+        .chat-msg {
+            color: #e2e8f0;
+            font-size: 14px;
+            line-height: 1.4;
+            word-wrap: break-word;
+        }
+
+        @keyframes slideInChat {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
     </style>
 </head>
 <body>
@@ -494,9 +543,66 @@
                     listenToGameState();
                     loadPoolFromFirestore(); 
                     listenToStats(); // Start listening to stats
+                    listenToChat(); // SOHBET DİNLEMEYİ BAŞLAT
                 }).catch((error) => {
                     console.error("Auth Failed:", error);
                 });
+            }
+
+            // --- CHAT LISTENER ---
+            function listenToChat() {
+                // Oyuncu panelinin yazdığı 'chat' koleksiyonunu dinler
+                const chatRef = collection(db, 'artifacts', appId, 'public', 'data', 'chat');
+                const q = query(chatRef, orderBy('timestamp', 'desc'), limit(50));
+                
+                onSnapshot(q, (snapshot) => {
+                    const chatContainer = document.getElementById('chat-list');
+                    if (!chatContainer) return;
+                    
+                    chatContainer.innerHTML = '';
+                    
+                    if (snapshot.empty) {
+                        chatContainer.innerHTML = '<div class="text-center text-slate-500 italic mt-10">Henüz sohbet mesajı yok.</div>';
+                        return;
+                    }
+
+                    snapshot.forEach((doc) => {
+                        const msg = doc.data();
+                        const time = msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString() : '';
+                        
+                        // Admin ve Oyuncu ayrımı (basitçe msg.role veya admin kontrolü)
+                        const isAdmin = msg.role === 'admin';
+                        const bubbleClass = isAdmin ? 'admin' : 'player';
+                        const nameColor = isAdmin ? 'text-sky-400' : (msg.race && msg.race.toLowerCase().includes('magron') ? 'text-rose-400' : 'text-blue-400');
+                        
+                        // Delete Button for Admin
+                        const deleteBtn = `<button onclick="window.deleteChatMessage('${doc.id}')" class="text-rose-500 hover:text-rose-300 text-[10px] ml-2 font-bold px-2 py-1 bg-rose-900/20 rounded hover:bg-rose-900/50 transition">SİL</button>`;
+
+                        const html = `
+                            <div class="chat-bubble ${bubbleClass}">
+                                <div class="chat-header">
+                                    <span class="chat-name ${nameColor}">${msg.nick || 'Misafir'} <span class="text-[9px] text-slate-500 font-normal">(${msg.race || '-'})</span></span>
+                                    <div class="flex items-center">
+                                        <span class="chat-time">${time}</span>
+                                        ${deleteBtn}
+                                    </div>
+                                </div>
+                                <div class="chat-msg">${msg.message}</div>
+                            </div>
+                        `;
+                        chatContainer.innerHTML += html;
+                    });
+                });
+            }
+
+            window.deleteChatMessage = async (msgId) => {
+                if(!confirm("Bu mesajı silmek istiyor musunuz?")) return;
+                try {
+                    await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'chat', msgId));
+                } catch(e) {
+                    console.error("Mesaj silme hatası:", e);
+                    alert("Silinemedi: " + e.message);
+                }
             }
 
             // --- FIRESTORE LISTENERS ---
@@ -763,6 +869,9 @@
                 <button id="tab-winners" onclick="switchTab('winners')" class="tab-btn px-4 py-2 rounded-lg text-[12px] font-bold uppercase transition shrink-0">ARŞİV📖</button>
                 <button id="tab-stats" onclick="switchTab('stats')" class="tab-btn px-4 py-2 rounded-lg text-[12px] font-bold uppercase transition shrink-0 text-emerald-400">İSTATİSTİK 📊</button>
                 <button id="tab-config" onclick="switchTab('config')" class="tab-btn px-4 py-2 rounded-lg text-[12px] font-bold uppercase transition shrink-0 text-yellow-500">AYARLAR ⚙️</button>
+                
+                <!-- SOHBET BUTONU -->
+                <button id="tab-chat" onclick="switchTab('chat')" class="tab-btn px-4 py-2 rounded-lg text-[12px] font-bold uppercase transition shrink-0 text-slate-200 bg-white/5 border border-white/10 ml-2">SOHBET 💬</button>
             </div>
 
             <div class="flex items-center gap-2">
@@ -1123,6 +1232,19 @@
                     <div class="p-6 bg-white/5 rounded-2xl border border-white/10"><label class="text-xs uppercase text-yellow-500 font-bold italic mb-4 block underline">Şans Topu Büyük Ödül</label><input type="number" id="lucky-jackpot-input" value="0" class="w-full bg-slate-900 border border-yellow-700/50 rounded-xl p-3 text-white"></div>
                     <div class="p-6 bg-white/5 rounded-2xl border border-white/10"><label class="text-xs uppercase text-indigo-500 font-bold italic mb-4 block underline">Zar Oyunu Büyük Ödül</label><input type="number" id="dice-jackpot-input" value="0" class="w-full bg-slate-900 border border-indigo-700/50 rounded-xl p-3 text-white"></div>
                 </div>
+            </div>
+        </main>
+
+        <!-- SOHBET PAGE (NEW) -->
+        <main id="chat-page" class="flex-1 hidden-page glass-panel rounded-2xl p-6 flex flex-col overflow-hidden">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-2xl font-black text-slate-200 uppercase tracking-wider">CANLI SOHBET AKIŞI 💬</h2>
+                <div class="text-[10px] text-slate-500 italic">Mesajlar anlık olarak aşağıda listelenir.</div>
+            </div>
+            
+            <div class="flex-1 bg-slate-900/50 rounded-xl p-4 border border-white/5 overflow-y-auto custom-scrollbar flex flex-col-reverse" id="chat-list">
+                <!-- Chat messages will be injected here via JS -->
+                <div class="text-center text-slate-500 italic mt-10">Sohbet yükleniyor...</div>
             </div>
         </main>
 
@@ -1653,8 +1775,8 @@
         }
 
         function switchTab(tab) {
-            const pages = { game: 'game-page', mirror: 'mirror-page', wheel: 'wheel-page', lucky: 'lucky-page', dice: 'dice-page', winners: 'winners-page', config: 'config-page', raffle: 'raffle-page', ticket: 'ticket-page', stats: 'stats-page', pool: 'pool-page', war: 'war-page' };
-            const btns = { game: 'tab-game', mirror: 'tab-mirror', wheel: 'tab-wheel', lucky: 'tab-lucky', dice: 'tab-dice', winners: 'tab-winners', config: 'tab-config', raffle: 'tab-raffle', ticket: 'tab-ticket', stats: 'tab-stats', pool: 'tab-pool', war: 'tab-war' };
+            const pages = { game: 'game-page', mirror: 'mirror-page', wheel: 'wheel-page', lucky: 'lucky-page', dice: 'dice-page', winners: 'winners-page', config: 'config-page', raffle: 'raffle-page', ticket: 'ticket-page', stats: 'stats-page', pool: 'pool-page', war: 'war-page', chat: 'chat-page' };
+            const btns = { game: 'tab-game', mirror: 'tab-mirror', wheel: 'tab-wheel', lucky: 'tab-lucky', dice: 'tab-dice', winners: 'tab-winners', config: 'tab-config', raffle: 'tab-raffle', ticket: 'tab-ticket', stats: 'tab-stats', pool: 'tab-pool', war: 'tab-war', chat: 'tab-chat' };
             Object.keys(pages).forEach(key => {
                 const p = document.getElementById(pages[key]);
                 const b = document.getElementById(btns[key]);
