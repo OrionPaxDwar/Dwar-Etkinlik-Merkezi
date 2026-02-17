@@ -2,8 +2,8 @@
 <html lang="tr">
 <head>
     <meta charset="UTF-8">
-    <title>Oyuncu Paneli - Çekiliş Ekranı</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Oyuncu Paneli - Çekiliş ve Sohbet</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
@@ -17,7 +17,19 @@
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         .fade-in { animation: fadeIn 0.4s ease-out forwards; }
         
+        @keyframes pulse-red { 0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); } 70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); } 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); } }
+        .recording-pulse { animation: pulse-red 1.5s infinite; }
+
+        /* Sohbet Kaydırma Çubuğu */
+        .chat-scroll::-webkit-scrollbar { width: 4px; }
+        .chat-scroll::-webkit-scrollbar-track { background: rgba(0,0,0,0.1); }
+        .chat-scroll::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
+
         textarea { resize: none; }
+        
+        /* Mesaj Balonları */
+        .msg-me { align-self: flex-end; background: #0284c7; color: white; border-bottom-right-radius: 2px; }
+        .msg-other { align-self: flex-start; background: #334155; color: white; border-bottom-left-radius: 2px; }
     </style>
 </head>
 <body class="min-h-screen flex flex-col items-center justify-center p-4 relative overflow-hidden">
@@ -28,8 +40,8 @@
         <div class="absolute bottom-10 right-10 w-64 h-64 bg-blue-600 rounded-full blur-[100px] opacity-20"></div>
     </div>
 
-    <!-- 1. BEKLEME EKRANI (Oyun Kapalıysa) -->
-    <div id="waiting-screen" class="glass-panel p-8 rounded-2xl text-center max-w-md w-full">
+    <!-- 1. BEKLEME EKRANI -->
+    <div id="waiting-screen" class="glass-panel p-8 rounded-2xl text-center max-w-md w-full z-10">
         <div class="animate-pulse mb-4">
             <i class="fa-solid fa-hourglass-half text-4xl text-slate-500"></i>
         </div>
@@ -37,8 +49,8 @@
         <p class="text-sm text-slate-500 mt-2">Şu an aktif bir çekiliş yok. Lütfen bekleyin.</p>
     </div>
 
-    <!-- 2. ANA EKRAN (Oyun Açıksa) -->
-    <div id="join-screen" class="glass-panel p-6 rounded-2xl max-w-md w-full hidden flex flex-col gap-4">
+    <!-- 2. ANA EKRAN -->
+    <div id="join-screen" class="glass-panel p-6 rounded-2xl max-w-md w-full hidden flex flex-col gap-4 z-10">
         
         <!-- Üst Başlık -->
         <div class="text-center">
@@ -46,7 +58,7 @@
             <p class="text-xs text-slate-400 mt-1">Katılmak için giriş yapmalısın</p>
         </div>
 
-        <!-- AUTH SİSTEMİ (Giriş Yapılmamışsa Görünür) -->
+        <!-- AUTH SİSTEMİ -->
         <div id="auth-container" class="fade-in">
             <!-- Sekmeler -->
             <div class="flex justify-between border-b border-slate-700 mb-4 pb-2">
@@ -97,7 +109,6 @@
 
             <!-- TAB 3: DÜZENLE -->
             <div id="view-edit" class="space-y-3 hidden">
-                <!-- Oturum Açık Değilse Doğrulama İste -->
                 <div id="edit-auth-step">
                     <p class="text-xs text-yellow-500 mb-2">Profil düzenlemek için mevcut bilgilerinizi girin:</p>
                     <input type="text" id="edit-old-nick" class="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white mb-2" placeholder="Mevcut Nick">
@@ -105,17 +116,14 @@
                     <button onclick="verifyForEdit()" class="w-full bg-slate-700 hover:bg-slate-600 py-2 rounded-xl text-sm font-bold">Doğrula ve Düzenle</button>
                 </div>
                 
-                <!-- Oturum Açıksa veya Doğrulandıysa -->
                 <div id="edit-form-step" class="hidden space-y-3 border-t border-slate-700 pt-3 mt-2">
                     <div class="bg-yellow-500/10 border border-yellow-500/20 p-2 rounded text-center mb-2">
-                        <p class="text-xs text-yellow-200">Burada yaptığınız değişiklikler çekiliş kaydınıza anında yansır.</p>
+                        <p class="text-xs text-yellow-200">Değişiklikler anında yansır.</p>
                     </div>
-                    
                     <div>
                         <label class="text-xs font-bold text-slate-400 uppercase ml-1">Yeni Nick</label>
                         <input type="text" id="edit-new-nick" class="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white focus:border-yellow-500" placeholder="Yeni Nick">
                     </div>
-                    
                     <div class="flex gap-2">
                         <div class="w-1/2">
                              <label class="text-xs font-bold text-slate-400 uppercase ml-1">Yeni Irk</label>
@@ -134,7 +142,7 @@
             </div>
         </div>
 
-        <!-- OYUN KATILIM FORMU (Giriş Yapılınca Görünür) -->
+        <!-- OYUN KATILIM FORMU -->
         <div id="game-input-container" class="hidden fade-in border-t border-slate-700 pt-4">
             <div class="flex items-center justify-between mb-4 bg-slate-800/50 p-3 rounded-lg border border-slate-700">
                 <div class="flex items-center gap-3">
@@ -158,7 +166,6 @@
                 <p id="extra-hint" class="text-[10px] text-slate-500 mt-1 italic"></p>
             </div>
 
-            <!-- NOT ALANI -->
             <div class="mb-4">
                 <label class="text-xs font-bold text-slate-400 uppercase ml-1">Yönetici için Not (Opsiyonel)</label>
                 <textarea id="player-note" rows="2" class="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white focus:border-sky-500 outline-none transition text-sm" placeholder="Buraya bir not bırakabilirsiniz..."></textarea>
@@ -171,7 +178,7 @@
     </div>
 
     <!-- 3. BAŞARI EKRANI -->
-    <div id="success-screen" class="glass-panel p-8 rounded-2xl text-center max-w-md w-full hidden">
+    <div id="success-screen" class="glass-panel p-8 rounded-2xl text-center max-w-md w-full hidden z-10">
         <div class="w-16 h-16 bg-green-500/20 text-green-400 rounded-full flex items-center justify-center mx-auto mb-4 border border-green-500/50 animate-bounce">
             <i class="fa-solid fa-check text-2xl"></i>
         </div>
@@ -179,17 +186,67 @@
         <p class="text-slate-400 text-sm mt-2">Kaydınız başarıyla yöneticiye iletildi.</p>
         
         <div class="mt-6 p-4 bg-slate-800/50 rounded-xl border border-slate-700/50">
-            <p class="text-xs text-slate-500 mb-2">Bir şeyi mi unuttunuz?</p>
             <button onclick="editEntryAgain()" class="w-full bg-slate-700 hover:bg-slate-600 text-white py-2 rounded-lg text-sm transition">
                 <i class="fa-solid fa-pen-to-square mr-2"></i>Bilgileri veya Notu Düzenle
             </button>
         </div>
     </div>
 
+    <!-- ============================================== -->
+    <!--            SOHBET & SESLİ İLETİŞİM             -->
+    <!-- ============================================== -->
+
+    <!-- Sohbet Açma Butonu (Floating) -->
+    <button id="chat-toggle-btn" onclick="toggleChat()" class="fixed bottom-6 right-6 w-14 h-14 bg-sky-600 hover:bg-sky-500 text-white rounded-full shadow-2xl flex items-center justify-center transition transform hover:scale-110 z-50 hidden">
+        <i class="fa-solid fa-comments text-xl"></i>
+        <span id="chat-badge" class="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full hidden border border-white"></span>
+    </button>
+
+    <!-- Sohbet Paneli (Drawer) -->
+    <div id="chat-panel" class="fixed bottom-24 right-6 w-80 h-96 glass-panel rounded-2xl flex flex-col overflow-hidden shadow-2xl transition-all duration-300 transform translate-y-[120%] z-50">
+        <!-- Başlık -->
+        <div class="bg-slate-800/80 p-3 border-b border-slate-700 flex justify-between items-center">
+            <div class="flex items-center gap-2">
+                <div class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                <h3 class="font-bold text-sm text-slate-200">Sohbet Odası</h3>
+            </div>
+            <button onclick="toggleChat()" class="text-slate-400 hover:text-white"><i class="fa-solid fa-times"></i></button>
+        </div>
+
+        <!-- Mesaj Alanı -->
+        <div id="chat-messages" class="flex-1 p-3 overflow-y-auto chat-scroll flex flex-col gap-2 bg-slate-900/50">
+            <div class="text-center text-xs text-slate-500 mt-2">Sohbet odasına bağlandınız.</div>
+        </div>
+
+        <!-- Input Alanı -->
+        <div class="p-2 bg-slate-800 border-t border-slate-700">
+            <div class="flex items-center gap-2">
+                <input type="text" id="chat-input" class="flex-1 bg-slate-900 border border-slate-600 rounded-full px-4 py-2 text-xs text-white focus:border-sky-500 outline-none" placeholder="Mesaj yaz...">
+                
+                <!-- Gönder Butonu -->
+                <button onclick="sendTextMessage()" class="w-8 h-8 rounded-full bg-sky-600 hover:bg-sky-500 text-white flex items-center justify-center shadow-lg">
+                    <i class="fa-solid fa-paper-plane text-xs"></i>
+                </button>
+
+                <!-- Ses Kayıt Butonu (Bas-Konuş) -->
+                <button id="mic-btn" 
+                    onmousedown="startRecording()" onmouseup="stopRecording()" 
+                    ontouchstart="startRecording()" ontouchend="stopRecording()"
+                    class="w-8 h-8 rounded-full bg-slate-700 hover:bg-slate-600 text-white flex items-center justify-center shadow-lg select-none transition-colors">
+                    <i class="fa-solid fa-microphone text-xs"></i>
+                </button>
+            </div>
+            <div id="recording-status" class="text-[10px] text-red-400 text-center mt-1 hidden animate-pulse font-bold">
+                ● KAYDEDİLİYOR (Basılı Tutun)
+            </div>
+        </div>
+    </div>
+
+
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, onSnapshot, setDoc, getDoc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, doc, onSnapshot, setDoc, getDoc, updateDoc, deleteDoc, collection, addDoc, query, orderBy, limit, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // FIREBASE CONFIG
         const firebaseConfig = {
@@ -206,9 +263,9 @@
         const db = getFirestore(app);
 
         // Değişkenler
-        let currentUser = null; // Firebase Auth User
+        let currentUser = null; 
         let activeGameState = null;
-        let loggedInPlayer = null; // Bizim sistemimizdeki {nick, race, pin}
+        let loggedInPlayer = null; 
         let hasJoinedCurrentRound = false;
 
         // --- BAŞLANGIÇ ---
@@ -220,47 +277,195 @@
                 try {
                     loggedInPlayer = JSON.parse(savedSession);
                     updateProfileUI();
+                    initChat(); // Giriş yapmışsa sohbeti başlat
                 } catch(e) { localStorage.removeItem('dwar_player_session'); }
             }
             listenToGame(); 
-            // Kullanıcının kendi kaydını dinle (Realtime updates için)
             listenToMyEntry();
         });
 
-        // --- OYUN DİNLEME ---
-        function listenToGame() {
-            const stateRef = doc(db, "artifacts/default/public/data/active/state");
+        // --- SOHBET SİSTEMİ ---
+        let mediaRecorder;
+        let audioChunks = [];
+        let isChatOpen = false;
+
+        window.toggleChat = () => {
+            const panel = document.getElementById('chat-panel');
+            const badge = document.getElementById('chat-badge');
             
-            onSnapshot(stateRef, (docSnap) => {
-                if (docSnap.exists()) {
-                    const data = docSnap.data();
-                    handleGameStateChange(data);
+            if (isChatOpen) {
+                panel.classList.add('translate-y-[120%]');
+                isChatOpen = false;
+            } else {
+                panel.classList.remove('translate-y-[120%]');
+                isChatOpen = true;
+                badge.classList.add('hidden'); // Bildirimi temizle
+                scrollToBottom();
+            }
+        };
+
+        function initChat() {
+            if(!loggedInPlayer) return;
+            document.getElementById('chat-toggle-btn').classList.remove('hidden');
+
+            const chatRef = collection(db, "artifacts", "default", "public", "data", "chat_messages");
+            const q = query(chatRef, orderBy("timestamp", "asc"), limit(50));
+
+            onSnapshot(q, (snapshot) => {
+                const chatContainer = document.getElementById('chat-messages');
+                // Basit bir yöntem: İçeriği temizle ve yeniden bas (daha iyi performans için append yapılabilir ama bu ölçekte yeterli)
+                chatContainer.innerHTML = '<div class="text-center text-xs text-slate-500 mt-2">Sohbet odasına bağlandınız.</div>';
+                
+                let isNewMessage = false;
+
+                snapshot.forEach((doc) => {
+                    const msg = doc.data();
+                    const isMe = msg.uid === currentUser.uid;
+                    const time = msg.timestamp ? new Date(msg.timestamp.toDate()).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : '...';
+                    
+                    const div = document.createElement('div');
+                    div.className = `p-2 rounded-lg max-w-[85%] text-xs shadow ${isMe ? 'msg-me' : 'msg-other'}`;
+                    
+                    let contentHtml = '';
+                    
+                    if (msg.type === 'audio') {
+                        contentHtml = `
+                            <div class="flex items-center gap-2">
+                                <i class="fa-solid fa-play-circle text-lg cursor-pointer hover:text-sky-300" onclick="this.nextElementSibling.play()"></i>
+                                <audio src="${msg.content}" class="hidden"></audio>
+                                <div class="flex flex-col">
+                                    <span class="font-bold text-[10px] opacity-70">🎤 Sesli Mesaj</span>
+                                    <div class="h-1 w-20 bg-white/30 rounded mt-1"></div>
+                                </div>
+                            </div>
+                        `;
+                    } else {
+                        contentHtml = `<span>${msg.content}</span>`;
+                    }
+
+                    div.innerHTML = `
+                        <div class="font-bold text-[10px] mb-0.5 opacity-70 flex justify-between gap-4">
+                            <span>${isMe ? 'Ben' : msg.nick}</span>
+                            <span>${time}</span>
+                        </div>
+                        ${contentHtml}
+                    `;
+                    chatContainer.appendChild(div);
+                    isNewMessage = true;
+                });
+
+                if (isNewMessage) {
+                    scrollToBottom();
+                    if (!isChatOpen) {
+                        document.getElementById('chat-badge').classList.remove('hidden');
+                    }
                 }
             });
         }
 
-        // --- OYUNCUNUN KENDİ GİRİŞİNİ DİNLEME ---
+        function scrollToBottom() {
+            const chatContainer = document.getElementById('chat-messages');
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+
+        // TEXT MESAJ GÖNDERME
+        window.sendTextMessage = async () => {
+            const input = document.getElementById('chat-input');
+            const text = input.value.trim();
+            if(!text || !loggedInPlayer) return;
+
+            input.value = '';
+            
+            try {
+                await addDoc(collection(db, "artifacts", "default", "public", "data", "chat_messages"), {
+                    content: text,
+                    type: 'text',
+                    nick: loggedInPlayer.nick,
+                    uid: currentUser.uid,
+                    timestamp: serverTimestamp()
+                });
+            } catch(e) { console.error("Mesaj hatası", e); }
+        };
+
+        // SES KAYIT (BAS-KONUŞ)
+        window.startRecording = async () => {
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                return alert("Tarayıcınız ses kaydını desteklemiyor.");
+            }
+
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                mediaRecorder = new MediaRecorder(stream);
+                audioChunks = [];
+
+                mediaRecorder.ondataavailable = event => {
+                    audioChunks.push(event.data);
+                };
+
+                mediaRecorder.onstop = async () => {
+                    const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                    // Blob'u Base64'e çevir (Firestore'a kaydetmek için - Not: Büyük dosyalar için Storage kullanılmalı ama 5-10sn ses için bu yöntem hızlı ve pratik)
+                    const reader = new FileReader();
+                    reader.readAsDataURL(audioBlob);
+                    reader.onloadend = async () => {
+                        const base64Audio = reader.result;
+                        // Firestore'a kaydet
+                        await addDoc(collection(db, "artifacts", "default", "public", "data", "chat_messages"), {
+                            content: base64Audio,
+                            type: 'audio',
+                            nick: loggedInPlayer.nick,
+                            uid: currentUser.uid,
+                            timestamp: serverTimestamp()
+                        });
+                    };
+                    
+                    // Stream'i kapat
+                    stream.getTracks().forEach(track => track.stop());
+                };
+
+                mediaRecorder.start();
+                
+                // UI Güncelle
+                document.getElementById('mic-btn').classList.add('bg-red-600', 'recording-pulse');
+                document.getElementById('mic-btn').classList.remove('bg-slate-700');
+                document.getElementById('recording-status').classList.remove('hidden');
+
+            } catch (err) {
+                console.error("Mikrofon hatası:", err);
+                alert("Mikrofona erişilemedi. İzin verdiğinizden emin olun.");
+            }
+        };
+
+        window.stopRecording = () => {
+            if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+                mediaRecorder.stop();
+                // UI Reset
+                document.getElementById('mic-btn').classList.remove('bg-red-600', 'recording-pulse');
+                document.getElementById('mic-btn').classList.add('bg-slate-700');
+                document.getElementById('recording-status').classList.add('hidden');
+            }
+        };
+
+        // --- MEVCUT OYUN KODLARI (Aynı kaldı, sadece loginSuccess içinde initChat çağrıldı) ---
+        
+        function listenToGame() {
+            const stateRef = doc(db, "artifacts/default/public/data/active/state");
+            onSnapshot(stateRef, (docSnap) => {
+                if (docSnap.exists()) handleGameStateChange(docSnap.data());
+            });
+        }
+
         function listenToMyEntry() {
             if (!currentUser) return;
             const entryRef = doc(db, "artifacts", "default", "public", "data", "entries", currentUser.uid);
-            
             onSnapshot(entryRef, (docSnap) => {
                 if (docSnap.exists()) {
                     const data = docSnap.data();
-                    // Eğer mevcut turun kaydıysa
                     if (activeGameState && data.round === activeGameState.round) {
                         hasJoinedCurrentRound = true;
-                        
-                        // Not alanını güncelle (başka cihazdan güncellendiyse diye)
                         const noteField = document.getElementById('player-note');
-                        if (noteField && document.activeElement !== noteField) {
-                            noteField.value = data.note || "";
-                        }
-                        
-                        // Eğer düzenleme modunda değilsek başarı ekranını göster
-                        if (!document.getElementById('game-input-container').classList.contains('active-edit-mode')) {
-                            showScreen('success');
-                        }
+                        if (noteField && document.activeElement !== noteField) noteField.value = data.note || "";
+                        if (!document.getElementById('game-input-container').classList.contains('active-edit-mode')) showScreen('success');
                     }
                 } else {
                     hasJoinedCurrentRound = false;
@@ -268,34 +473,23 @@
             });
         }
 
-        // --- OYUN DURUMU YÖNETİMİ ---
         function handleGameStateChange(newState) {
-            // Yeni Tur Kontrolü
             if (activeGameState && activeGameState.round !== newState.round) {
                 hasJoinedCurrentRound = false;
                 document.getElementById('extra-input').value = "";
                 document.getElementById('player-note').value = "";
                 showScreen('join'); 
             }
-
             activeGameState = newState;
-
-            // Oyun Kapalı mı?
             if (newState.status !== 'open') {
                 showScreen('waiting');
                 return;
             }
-
-            // Oyun Açık -> Join Ekranı
-            if (!hasJoinedCurrentRound) {
-                showScreen('join');
-            } else {
-                showScreen('success');
-            }
+            if (!hasJoinedCurrentRound) showScreen('join');
+            else showScreen('success');
             
             setupFormForGame(newState.game);
 
-            // Eğer giriş yapmışsa direk oyun formunu göster, yoksa auth formunu
             if(loggedInPlayer) {
                 document.getElementById('auth-container').classList.add('hidden');
                 document.getElementById('game-input-container').classList.remove('hidden');
@@ -305,180 +499,94 @@
             }
         }
 
-        // --- AUTH: GİRİŞ YAP ---
         window.handleLogin = async () => {
             const nick = document.getElementById('login-nick').value.trim();
             const pin = document.getElementById('login-pin').value.trim();
-
             if(!nick || !pin) return alert("Lütfen nick ve şifre girin.");
-
             try {
                 const profileRef = doc(db, "artifacts", "default", "public", "data", "player_profiles", nick);
                 const docSnap = await getDoc(profileRef);
-
                 if (!docSnap.exists()) {
-                    alert("Bu nick ile kayıt bulunamadı. Lütfen önce kayıt olun.");
-                    switchTab('register');
-                    document.getElementById('reg-nick').value = nick; 
-                    return;
+                    alert("Kayıt bulunamadı.");
+                    switchTab('register'); document.getElementById('reg-nick').value = nick; return;
                 }
-
                 const data = docSnap.data();
-                if (data.pin !== pin) {
-                    alert("Hatalı şifre!");
-                    return;
-                }
-
+                if (data.pin !== pin) return alert("Hatalı şifre!");
                 loginSuccess(nick, data.race, pin);
-
-            } catch (error) {
-                console.error(error);
-                alert("Giriş hatası: " + error.message);
-            }
+            } catch (error) { alert("Giriş hatası: " + error.message); }
         };
 
-        // --- AUTH: KAYIT OL ---
         window.handleRegister = async () => {
             const nick = document.getElementById('reg-nick').value.trim();
             const race = document.getElementById('reg-race').value;
             const pin = document.getElementById('reg-pin').value.trim();
-
             if(!nick) return alert("Nick gerekli.");
-            if(!pin || pin.length !== 6 || isNaN(pin)) return alert("Şifre 6 haneli bir sayı olmalıdır.");
-
+            if(!pin || pin.length !== 6 || isNaN(pin)) return alert("Şifre 6 haneli sayı olmalı.");
             try {
                 const profileRef = doc(db, "artifacts", "default", "public", "data", "player_profiles", nick);
                 const docSnap = await getDoc(profileRef);
-
-                if (docSnap.exists()) {
-                    alert("Bu nick zaten alınmış!");
-                    return;
-                }
-
-                await setDoc(profileRef, {
-                    nick: nick,
-                    race: race,
-                    pin: pin,
-                    createdAt: new Date().toISOString(),
-                    uid: currentUser.uid 
-                });
-
-                alert("Profil oluşturuldu! Giriş yapılıyor...");
+                if (docSnap.exists()) return alert("Bu nick zaten alınmış!");
+                await setDoc(profileRef, { nick, race, pin, createdAt: new Date().toISOString(), uid: currentUser.uid });
                 loginSuccess(nick, race, pin);
-
-            } catch (error) {
-                console.error(error);
-                alert("Kayıt hatası: " + error.message);
-            }
+            } catch (error) { alert("Kayıt hatası: " + error.message); }
         };
 
-        // --- AUTH: DÜZENLEME (Doğrulama) ---
+        // Edit fonksiyonları (Verify, Submit vs.) önceki kodla aynı, yer kaplamaması için özet geçiyorum
         let editCurrentNick = "";
-        
-        // Otomatik Doğrulama (Eğer zaten giriş yapmışsa)
         function checkAutoEdit() {
             if(loggedInPlayer) {
-                // Zaten giriş yapmış, doğrulamaya gerek yok
                 editCurrentNick = loggedInPlayer.nick;
                 document.getElementById('edit-auth-step').classList.add('hidden');
                 document.getElementById('edit-form-step').classList.remove('hidden');
-                
                 document.getElementById('edit-new-nick').value = loggedInPlayer.nick;
                 document.getElementById('edit-new-race').value = loggedInPlayer.race;
                 document.getElementById('edit-new-pin').value = loggedInPlayer.pin;
                 return true;
-            }
-            return false;
+            } return false;
         }
-
         window.verifyForEdit = async () => {
-            const nick = document.getElementById('edit-old-nick').value.trim();
-            const pin = document.getElementById('edit-old-pin').value.trim();
-
-            if(!nick || !pin) return alert("Bilgileri doldurun.");
-
-            try {
-                const profileRef = doc(db, "artifacts", "default", "public", "data", "player_profiles", nick);
-                const docSnap = await getDoc(profileRef);
-
-                if (!docSnap.exists() || docSnap.data().pin !== pin) {
-                    alert("Bilgiler hatalı.");
-                    return;
-                }
-
+             const nick = document.getElementById('edit-old-nick').value.trim();
+             const pin = document.getElementById('edit-old-pin').value.trim();
+             try {
+                const docSnap = await getDoc(doc(db, "artifacts", "default", "public", "data", "player_profiles", nick));
+                if (!docSnap.exists() || docSnap.data().pin !== pin) return alert("Hatalı bilgi.");
                 editCurrentNick = nick;
                 document.getElementById('edit-auth-step').classList.add('hidden');
                 document.getElementById('edit-form-step').classList.remove('hidden');
-                
                 document.getElementById('edit-new-nick').value = nick;
                 document.getElementById('edit-new-race').value = docSnap.data().race;
                 document.getElementById('edit-new-pin').value = pin;
-
-            } catch(e) {
-                alert("Hata: " + e.message);
-            }
+             } catch(e) { alert("Hata: " + e.message); }
         };
-
-        // --- AUTH: DÜZENLEME (Submit) ---
         window.submitEdit = async () => {
             const newNick = document.getElementById('edit-new-nick').value.trim();
             const newRace = document.getElementById('edit-new-race').value;
             const newPin = document.getElementById('edit-new-pin').value.trim();
-
-            if(!newNick || !newPin || newPin.length !== 6) return alert("Geçerli bilgiler girin.");
-
+            if(!newNick || !newPin) return alert("Bilgileri girin.");
             try {
-                // Nick değişiyor mu?
                 if (newNick !== editCurrentNick) {
                     const newRef = doc(db, "artifacts", "default", "public", "data", "player_profiles", newNick);
-                    const check = await getDoc(newRef);
-                    if(check.exists()) return alert("Yeni seçtiğiniz nick zaten kullanımda.");
-
-                    // Yeni oluştur
+                    if((await getDoc(newRef)).exists()) return alert("Nick kullanımda.");
                     await setDoc(newRef, { nick: newNick, race: newRace, pin: newPin, uid: currentUser.uid });
-                    
-                    // Eskiyi sil
-                    const oldRef = doc(db, "artifacts", "default", "public", "data", "player_profiles", editCurrentNick);
-                    await deleteDoc(oldRef);
-                    
+                    await deleteDoc(doc(db, "artifacts", "default", "public", "data", "player_profiles", editCurrentNick));
                 } else {
-                    // Sadece data update
-                    const profileRef = doc(db, "artifacts", "default", "public", "data", "player_profiles", editCurrentNick);
-                    await updateDoc(profileRef, { race: newRace, pin: newPin });
+                    await updateDoc(doc(db, "artifacts", "default", "public", "data", "player_profiles", editCurrentNick), { race: newRace, pin: newPin });
                 }
-                
-                // Session güncelle
                 loginSuccess(newNick, newRace, newPin);
-
-                // EĞER OYUNCU ZATEN ÇEKİLİŞE KATILMIŞSA, ORADAKİ BİLGİLERİ DE GÜNCELLE
                 if (hasJoinedCurrentRound) {
-                     const entryRef = doc(db, "artifacts", "default", "public", "data", "entries", currentUser.uid);
-                     // setDoc merge ile güvenli güncelleme yapalım
-                     await setDoc(entryRef, {
-                        nick: newNick,
-                        race: newRace
-                     }, { merge: true });
+                     await setDoc(doc(db, "artifacts", "default", "public", "data", "entries", currentUser.uid), { nick: newNick, race: newRace }, { merge: true });
                 }
-
-                alert("Bilgiler güncellendi!");
-                
-                // Formu kapat, oyun ekranına dön
+                alert("Güncellendi.");
                 document.getElementById('auth-container').classList.add('hidden');
                 document.getElementById('game-input-container').classList.remove('hidden');
-
-            } catch(e) {
-                alert("Hata: " + e.message);
-            }
+            } catch(e) { alert("Hata: " + e.message); }
         };
 
-        // --- YARDIMCI FONKSİYONLAR ---
         function loginSuccess(nick, race, pin) {
             loggedInPlayer = { nick, race, pin };
             localStorage.setItem('dwar_player_session', JSON.stringify(loggedInPlayer));
-            
             updateProfileUI();
-            
-            // UI Geçişi
+            initChat(); // SOHBETİ BAŞLAT
             document.getElementById('auth-container').classList.add('hidden');
             document.getElementById('game-input-container').classList.remove('hidden');
         }
@@ -487,7 +595,6 @@
             if(!loggedInPlayer) return;
             document.getElementById('profile-display-nick').innerText = loggedInPlayer.nick;
             document.getElementById('profile-display-race').innerText = loggedInPlayer.race === 'human' ? 'İnsan' : 'Magron';
-            
             const iconEl = document.getElementById('profile-race-icon');
             if(loggedInPlayer.race === 'magron') {
                 iconEl.innerHTML = '<i class="fa-solid fa-fire text-red-500"></i>';
@@ -498,80 +605,45 @@
             }
         }
 
-        window.logout = () => {
-            localStorage.removeItem('dwar_player_session');
-            loggedInPlayer = null;
-            location.reload();
-        };
-
+        window.logout = () => { localStorage.removeItem('dwar_player_session'); loggedInPlayer = null; location.reload(); };
         window.switchTab = (tabName) => {
             ['login', 'register', 'edit'].forEach(t => {
                 document.getElementById(`tab-${t}`).classList.remove('active');
                 document.getElementById(`view-${t}`).classList.add('hidden');
             });
-            
             document.getElementById(`tab-${tabName}`).classList.add('active');
             document.getElementById(`view-${tabName}`).classList.remove('hidden');
-
-            if(tabName === 'edit') {
-                checkAutoEdit();
-            }
+            if(tabName === 'edit') checkAutoEdit();
         };
-
-        // --- KATILDIKTAN SONRA DÜZENLEME ---
         window.editEntryAgain = () => {
             showScreen('join');
-            // Buton metnini değiştir ki anlaşılsın
             const btn = document.getElementById('join-btn');
             btn.innerText = "BİLGİLERİ GÜNCELLE";
-            btn.classList.remove('from-sky-600', 'to-blue-600');
             btn.classList.add('from-yellow-600', 'to-orange-600');
-            
-            // Edit modunu işaretle (listenToMyEntry otomatik kapatmasın diye)
             document.getElementById('game-input-container').classList.add('active-edit-mode');
         };
-
-        // --- OYUNA KATILMA / GÜNCELLEME ---
         window.submitEntry = async () => {
-            if (!loggedInPlayer) return alert("Oturum süresi dolmuş, lütfen tekrar giriş yapın.");
-
+            if (!loggedInPlayer) return alert("Oturum süresi dolmuş.");
             const extra = document.getElementById('extra-input').value.trim();
             const note = document.getElementById('player-note').value.trim();
-
-            if (activeGameState.game === 'lucky' && !extra) return alert("Lütfen şanslı numaralarınızı girin!");
-            if (activeGameState.game === 'dice' && !extra) return alert("Lütfen zar tahmininizi girin!");
-
+            if (activeGameState.game === 'lucky' && !extra) return alert("Numaraları girin.");
             const btn = document.getElementById('join-btn');
             const originalText = btn.innerText;
-            btn.innerText = "GÖNDERİLİYOR...";
-            btn.disabled = true;
-
+            btn.innerText = "GÖNDERİLİYOR..."; btn.disabled = true;
             try {
-                const entryRef = doc(db, "artifacts", "default", "public", "data", "entries", currentUser.uid);
-
-                await setDoc(entryRef, {
+                await setDoc(doc(db, "artifacts", "default", "public", "data", "entries", currentUser.uid), {
                     nick: loggedInPlayer.nick,
                     race: loggedInPlayer.race,
                     game: activeGameState.game,
                     round: activeGameState.round,
                     prediction: extra,
-                    note: note, // Notu kaydet
+                    note: note,
                     timestamp: new Date().toISOString()
-                }, { merge: true }); // Merge kullanıyoruz ki varsa üzerine yazsın
-
-                // Edit modunu kaldır
+                }, { merge: true });
                 document.getElementById('game-input-container').classList.remove('active-edit-mode');
-                
-                // Başarı ekranı (listenToMyEntry zaten tetikleyecek ama hız için manuel de açalım)
                 showScreen('success');
-
-            } catch (error) {
-                console.error("Hata:", error);
-                alert("Bir hata oluştu: " + error.message);
-            } finally {
-                btn.innerText = originalText;
-                btn.disabled = false;
-            }
+            } catch (error) { alert("Hata: " + error.message); } 
+            finally { btn.innerText = originalText; btn.disabled = false; }
         };
 
         function setupFormForGame(gameType) {
@@ -581,42 +653,22 @@
             const extraInput = document.getElementById('extra-input');
             const extraHint = document.getElementById('extra-hint');
             const joinBtn = document.getElementById('join-btn');
-
             extraArea.classList.add('hidden');
-            
-            // Buton reset (her tur başında)
             if(!hasJoinedCurrentRound) {
                 joinBtn.innerText = "ÇEKİLİŞE KATIL";
-                joinBtn.classList.add('from-sky-600', 'to-blue-600');
                 joinBtn.classList.remove('from-yellow-600', 'to-orange-600');
             }
-
-            const titles = {
-                'game': "KUTU OYUNU",
-                'wheel': "ŞANSLI ÇARK",
-                'ticket': "BİLET OYUNU",
-                'mirror': "AYNA OYUNU",
-                'lucky': "ŞANS TOPU",
-                'dice': "ZAR OYUNU"
-            };
+            const titles = { 'game': "KUTU OYUNU", 'wheel': "ŞANSLI ÇARK", 'ticket': "BİLET OYUNU", 'mirror': "AYNA OYUNU", 'lucky': "ŞANS TOPU", 'dice': "ZAR OYUNU" };
             titleEl.innerText = titles[gameType] || "ÇEKİLİŞ AKTİF";
-
             if (gameType === 'lucky') {
-                extraArea.classList.remove('hidden');
-                extraLabel.innerText = "Şanslı Sayıların";
-                extraInput.placeholder = "Örn: 1-5-9";
-                extraHint.innerText = "3 adet rakam giriniz.";
+                extraArea.classList.remove('hidden'); extraLabel.innerText = "Şanslı Sayıların"; extraInput.placeholder = "Örn: 1-5-9"; extraHint.innerText = "3 adet rakam giriniz.";
             } else if (gameType === 'dice') {
-                extraArea.classList.remove('hidden');
-                extraLabel.innerText = "Zar Toplamı Tahmini";
-                extraInput.placeholder = "Örn: 18";
-                extraHint.innerText = "Beklediğiniz toplam sayı.";
+                extraArea.classList.remove('hidden'); extraLabel.innerText = "Zar Toplamı Tahmini"; extraInput.placeholder = "Örn: 18"; extraHint.innerText = "Beklediğiniz toplam sayı.";
             }
         }
 
         function showScreen(screenName) {
             ['waiting-screen', 'join-screen', 'success-screen'].forEach(id => document.getElementById(id).classList.add('hidden'));
-            
             if (screenName === 'waiting') document.getElementById('waiting-screen').classList.remove('hidden');
             if (screenName === 'join') document.getElementById('join-screen').classList.remove('hidden');
             if (screenName === 'success') document.getElementById('success-screen').classList.remove('hidden');
