@@ -7,6 +7,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- OTP Library for 2FA -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/otpauth/9.1.4/otpauth.umd.min.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;700;900&display=swap');
         
@@ -367,53 +368,11 @@
         }
 
         /* CHAT STYLES */
-        .chat-bubble {
-            background: rgba(30, 41, 59, 0.8);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 12px;
-            padding: 12px;
-            margin-bottom: 12px;
-            position: relative;
-            animation: slideInChat 0.3s ease-out forwards;
-        }
-
-        .chat-bubble.admin {
-            border-color: rgba(56, 189, 248, 0.4);
-            background: rgba(15, 23, 42, 0.9);
-        }
-
-        .chat-bubble.player {
-            border-color: rgba(245, 158, 11, 0.2);
-        }
-
-        .chat-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 4px;
-        }
-
-        .chat-name {
-            font-weight: bold;
-            font-size: 14px;
-        }
-
-        .chat-time {
-            font-size: 10px;
-            color: #64748b;
-        }
-
-        .chat-msg {
-            color: #e2e8f0;
-            font-size: 14px;
-            line-height: 1.4;
-            word-wrap: break-word;
-        }
-
-        @keyframes slideInChat {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
+        .msg-admin { align-self: flex-end; background: #0ea5e9; color: white; border-bottom-right-radius: 2px; }
+        .msg-user { align-self: flex-start; background: #334155; color: white; border-bottom-left-radius: 2px; }
+        .chat-scroll::-webkit-scrollbar { width: 6px; }
+        .chat-scroll::-webkit-scrollbar-track { background: rgba(0,0,0,0.1); }
+        .chat-scroll::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
     </style>
 </head>
 <body>
@@ -514,7 +473,7 @@
 
             import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js';
             import { getAuth, signInAnonymously } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js';
-            import { getFirestore, collection, doc, setDoc, getDoc, addDoc, deleteDoc, onSnapshot, query, where, getDocs, orderBy, limit, writeBatch, increment, arrayUnion } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js';
+            import { getFirestore, collection, doc, setDoc, getDoc, addDoc, deleteDoc, onSnapshot, query, where, getDocs, orderBy, limit, writeBatch, increment, arrayUnion, serverTimestamp } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js';
 
             const appId = "default";
 
@@ -543,66 +502,10 @@
                     listenToGameState();
                     loadPoolFromFirestore(); 
                     listenToStats(); // Start listening to stats
-                    listenToChat(); // SOHBET DİNLEMEYİ BAŞLAT
+                    listenToChat(); // Start listening to chat
                 }).catch((error) => {
                     console.error("Auth Failed:", error);
                 });
-            }
-
-            // --- CHAT LISTENER ---
-            function listenToChat() {
-                // Oyuncu panelinin yazdığı 'chat' koleksiyonunu dinler
-                const chatRef = collection(db, 'artifacts', appId, 'public', 'data', 'chat');
-                const q = query(chatRef, orderBy('timestamp', 'desc'), limit(50));
-                
-                onSnapshot(q, (snapshot) => {
-                    const chatContainer = document.getElementById('chat-list');
-                    if (!chatContainer) return;
-                    
-                    chatContainer.innerHTML = '';
-                    
-                    if (snapshot.empty) {
-                        chatContainer.innerHTML = '<div class="text-center text-slate-500 italic mt-10">Henüz sohbet mesajı yok.</div>';
-                        return;
-                    }
-
-                    snapshot.forEach((doc) => {
-                        const msg = doc.data();
-                        const time = msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString() : '';
-                        
-                        // Admin ve Oyuncu ayrımı (basitçe msg.role veya admin kontrolü)
-                        const isAdmin = msg.role === 'admin';
-                        const bubbleClass = isAdmin ? 'admin' : 'player';
-                        const nameColor = isAdmin ? 'text-sky-400' : (msg.race && msg.race.toLowerCase().includes('magron') ? 'text-rose-400' : 'text-blue-400');
-                        
-                        // Delete Button for Admin
-                        const deleteBtn = `<button onclick="window.deleteChatMessage('${doc.id}')" class="text-rose-500 hover:text-rose-300 text-[10px] ml-2 font-bold px-2 py-1 bg-rose-900/20 rounded hover:bg-rose-900/50 transition">SİL</button>`;
-
-                        const html = `
-                            <div class="chat-bubble ${bubbleClass}">
-                                <div class="chat-header">
-                                    <span class="chat-name ${nameColor}">${msg.nick || 'Misafir'} <span class="text-[9px] text-slate-500 font-normal">(${msg.race || '-'})</span></span>
-                                    <div class="flex items-center">
-                                        <span class="chat-time">${time}</span>
-                                        ${deleteBtn}
-                                    </div>
-                                </div>
-                                <div class="chat-msg">${msg.message}</div>
-                            </div>
-                        `;
-                        chatContainer.innerHTML += html;
-                    });
-                });
-            }
-
-            window.deleteChatMessage = async (msgId) => {
-                if(!confirm("Bu mesajı silmek istiyor musunuz?")) return;
-                try {
-                    await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'chat', msgId));
-                } catch(e) {
-                    console.error("Mesaj silme hatası:", e);
-                    alert("Silinemedi: " + e.message);
-                }
             }
 
             // --- FIRESTORE LISTENERS ---
@@ -679,6 +582,79 @@
                     window.renderStatsTable();
                 });
             }
+
+            // --- CHAT FUNCTIONS ---
+            function listenToChat() {
+                const chatRef = collection(db, "artifacts", "default", "public", "data", "chat_messages");
+                const q = query(chatRef, orderBy("timestamp", "asc"), limit(50));
+
+                onSnapshot(q, (snapshot) => {
+                    const chatContainer = document.getElementById('admin-chat-messages');
+                    if (!chatContainer) return;
+
+                    chatContainer.innerHTML = '';
+                    
+                    snapshot.forEach((doc) => {
+                        const msg = doc.data();
+                        const isMe = msg.nick === "YÖNETİM"; // Basit kontrol
+                        const time = msg.timestamp ? new Date(msg.timestamp.toDate()).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : '...';
+                        
+                        const div = document.createElement('div');
+                        div.className = `p-3 rounded-lg max-w-[80%] text-sm shadow mb-2 relative group ${isMe ? 'msg-admin' : 'msg-user'}`;
+                        
+                        let contentHtml = '';
+                        if (msg.type === 'audio') {
+                            contentHtml = `
+                                <div class="flex items-center gap-2">
+                                    <i class="fa-solid fa-play-circle text-xl cursor-pointer hover:text-sky-300" onclick="this.nextElementSibling.play()"></i>
+                                    <audio src="${msg.content}" class="hidden"></audio>
+                                    <div class="flex flex-col">
+                                        <span class="font-bold text-xs opacity-70">🎤 Sesli Mesaj</span>
+                                    </div>
+                                </div>
+                            `;
+                        } else {
+                            contentHtml = `<span>${msg.content}</span>`;
+                        }
+
+                        div.innerHTML = `
+                            <div class="font-bold text-[10px] mb-0.5 opacity-70 flex justify-between gap-4">
+                                <span>${isMe ? 'YÖNETİCİ' : msg.nick}</span>
+                                <span>${time}</span>
+                            </div>
+                            ${contentHtml}
+                            <button onclick="window.deleteChatMessage('${doc.id}')" class="absolute -top-2 -right-2 bg-rose-500 text-white w-5 h-5 rounded-full flex items-center justify-center text-[10px] opacity-0 group-hover:opacity-100 transition shadow">✕</button>
+                        `;
+                        chatContainer.appendChild(div);
+                    });
+                    chatContainer.scrollTop = chatContainer.scrollHeight;
+                });
+            }
+
+            window.sendAdminMessage = async () => {
+                const input = document.getElementById('admin-chat-input');
+                const text = input.value.trim();
+                if(!text || !currentUser) return;
+
+                input.value = '';
+                
+                try {
+                    await addDoc(collection(db, "artifacts", "default", "public", "data", "chat_messages"), {
+                        content: text,
+                        type: 'text',
+                        nick: "YÖNETİM",
+                        uid: currentUser.uid,
+                        timestamp: serverTimestamp()
+                    });
+                } catch(e) { console.error("Mesaj hatası", e); }
+            };
+
+            window.deleteChatMessage = async (msgId) => {
+                if(!confirm("Bu mesajı silmek istiyor musunuz?")) return;
+                try {
+                    await deleteDoc(doc(db, "artifacts", "default", "public", "data", "chat_messages", msgId));
+                } catch(e) { console.error("Silme hatası", e); }
+            };
 
             window.updateStatInFirestore = async (nick, isWin, winDetails, race) => {
                 if(!currentUser) return;
@@ -862,16 +838,14 @@
                 <button id="tab-ticket" onclick="switchTab('ticket')" class="tab-btn px-4 py-2 rounded-lg text-[12px] font-bold uppercase transition shrink-0 text-amber-300">BİLET OYUNU 🎫</button>
                 <button id="tab-lucky" onclick="switchTab('lucky')" class="tab-btn px-4 py-2 rounded-lg text-[12px] font-bold uppercase transition shrink-0">ŞANS TOPU🎡</button>
                 <button id="tab-dice" onclick="switchTab('dice')" class="tab-btn px-4 py-2 rounded-lg text-[12px] font-bold uppercase transition shrink-0">ZAR OYUNU 🎲</button>
-                <!-- NEW BUTTON ADDED HERE -->
                 <button id="tab-war" onclick="switchTab('war')" class="tab-btn px-4 py-2 rounded-lg text-[12px] font-bold uppercase transition shrink-0 text-red-500">IRK SAVAŞI ⚔️</button>
                 
+                <button id="tab-chat" onclick="switchTab('chat')" class="tab-btn px-4 py-2 rounded-lg text-[12px] font-bold uppercase transition shrink-0 text-white bg-sky-600/50 hover:bg-sky-500 border border-sky-400/30">SOHBET 💬</button>
+
                 <button id="tab-pool" onclick="switchTab('pool')" class="tab-btn px-4 py-2 rounded-lg text-[12px] font-bold uppercase transition shrink-0 text-sky-400">HAVUZ YÖNETİMİ 🏊</button>
                 <button id="tab-winners" onclick="switchTab('winners')" class="tab-btn px-4 py-2 rounded-lg text-[12px] font-bold uppercase transition shrink-0">ARŞİV📖</button>
                 <button id="tab-stats" onclick="switchTab('stats')" class="tab-btn px-4 py-2 rounded-lg text-[12px] font-bold uppercase transition shrink-0 text-emerald-400">İSTATİSTİK 📊</button>
                 <button id="tab-config" onclick="switchTab('config')" class="tab-btn px-4 py-2 rounded-lg text-[12px] font-bold uppercase transition shrink-0 text-yellow-500">AYARLAR ⚙️</button>
-                
-                <!-- SOHBET BUTONU -->
-                <button id="tab-chat" onclick="switchTab('chat')" class="tab-btn px-4 py-2 rounded-lg text-[12px] font-bold uppercase transition shrink-0 text-slate-200 bg-white/5 border border-white/10 ml-2">SOHBET 💬</button>
             </div>
 
             <div class="flex items-center gap-2">
@@ -1201,6 +1175,28 @@
             </div>
         </main>
 
+        <!-- --- CHAT PAGE (YENİ EKLENDİ) --- -->
+        <main id="chat-page" class="flex-1 hidden-page glass-panel rounded-2xl p-6 flex flex-col overflow-hidden">
+            <div class="flex justify-between items-center mb-4 border-b border-white/10 pb-4">
+                <h2 class="text-2xl font-black text-sky-400 uppercase tracking-wider flex items-center gap-2">
+                    <i class="fa-solid fa-comments"></i> CANLI SOHBET & DESTEK
+                </h2>
+                <div class="text-xs text-slate-400 font-bold uppercase">
+                    Yönetici Modu
+                </div>
+            </div>
+            
+            <div id="admin-chat-messages" class="flex-1 overflow-y-auto chat-scroll bg-slate-900/50 rounded-xl p-4 border border-white/5 flex flex-col gap-2 mb-4">
+                <!-- Mesajlar buraya gelecek -->
+                <div class="text-center text-slate-500 text-xs italic">Sohbet bağlantısı kuruldu...</div>
+            </div>
+
+            <div class="flex gap-2 bg-slate-800/80 p-3 rounded-xl border border-white/10">
+                <input type="text" id="admin-chat-input" class="flex-1 bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 text-white focus:border-sky-500 outline-none" placeholder="Yönetici mesajı gönder..." onkeydown="if(event.key === 'Enter') sendAdminMessage()">
+                <button onclick="sendAdminMessage()" class="bg-sky-600 hover:bg-sky-500 text-white px-6 rounded-lg font-bold uppercase text-sm transition">GÖNDER</button>
+            </div>
+        </main>
+
         <main id="winners-page" class="flex-1 hidden-page glass-panel rounded-2xl p-6 flex flex-col overflow-hidden">
             <div class="flex justify-between items-center mb-4">
                 <h2 class="text-2xl font-black text-sky-400 uppercase tracking-wider">KAZANIM ARŞİVİ</h2>
@@ -1232,19 +1228,6 @@
                     <div class="p-6 bg-white/5 rounded-2xl border border-white/10"><label class="text-xs uppercase text-yellow-500 font-bold italic mb-4 block underline">Şans Topu Büyük Ödül</label><input type="number" id="lucky-jackpot-input" value="0" class="w-full bg-slate-900 border border-yellow-700/50 rounded-xl p-3 text-white"></div>
                     <div class="p-6 bg-white/5 rounded-2xl border border-white/10"><label class="text-xs uppercase text-indigo-500 font-bold italic mb-4 block underline">Zar Oyunu Büyük Ödül</label><input type="number" id="dice-jackpot-input" value="0" class="w-full bg-slate-900 border border-indigo-700/50 rounded-xl p-3 text-white"></div>
                 </div>
-            </div>
-        </main>
-
-        <!-- SOHBET PAGE (NEW) -->
-        <main id="chat-page" class="flex-1 hidden-page glass-panel rounded-2xl p-6 flex flex-col overflow-hidden">
-            <div class="flex justify-between items-center mb-4">
-                <h2 class="text-2xl font-black text-slate-200 uppercase tracking-wider">CANLI SOHBET AKIŞI 💬</h2>
-                <div class="text-[10px] text-slate-500 italic">Mesajlar anlık olarak aşağıda listelenir.</div>
-            </div>
-            
-            <div class="flex-1 bg-slate-900/50 rounded-xl p-4 border border-white/5 overflow-y-auto custom-scrollbar flex flex-col-reverse" id="chat-list">
-                <!-- Chat messages will be injected here via JS -->
-                <div class="text-center text-slate-500 italic mt-10">Sohbet yükleniyor...</div>
             </div>
         </main>
 
@@ -2333,7 +2316,7 @@
             }, 100); 
         }
 
-        // --- WHEEL LOGIC ---
+         // --- WHEEL LOGIC ---
         function toggleWheelJoin(e) { 
             state.isWheelJoinEnabled = e; 
             document.getElementById('wheel-start-btn').classList.toggle('hidden', e); 
