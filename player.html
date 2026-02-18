@@ -7,11 +7,42 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
-        body { font-family: 'Inter', sans-serif; background: #0f172a; color: white; }
-        .glass-panel { background: rgba(30, 41, 59, 0.95); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.1); }
+        @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Inter:wght@300;400;600&display=swap');
+
+        body { 
+            font-family: 'Inter', sans-serif; 
+            color: #e2e8f0; 
+            /* Arka Plan Görseli */
+            background: url('https://dwar.gen.tr/images/bg-main_1.jpg') no-repeat center center fixed; 
+            background-size: cover;
+        }
+
+        /* Arka planın üzerine gelen koyu perde - GÜNCELLENDİ: Daha şeffaf (%40) */
+        .bg-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(15, 23, 42, 0.4); 
+            z-index: -1;
+        }
+
+        /* Daha şık, oyun temalı cam panel */
+        .glass-panel { 
+            background: rgba(17, 24, 39, 0.9); 
+            backdrop-filter: blur(8px); 
+            border: 1px solid rgba(148, 163, 184, 0.15); 
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+        }
+
+        h2, h3, .game-font {
+            font-family: 'Cinzel', serif; /* Başlıklar için mistik font */
+        }
+
         .hidden { display: none !important; }
         .tab-btn { transition: all 0.3s ease; border-bottom: 2px solid transparent; opacity: 0.6; }
-        .tab-btn.active { border-color: #38bdf8; opacity: 1; color: #38bdf8; }
+        .tab-btn.active { border-color: #f59e0b; opacity: 1; color: #f59e0b; } /* Amber rengi tema */
         
         /* Animasyonlar */
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
@@ -22,40 +53,53 @@
 
         /* Sohbet Kaydırma Çubuğu */
         .chat-scroll::-webkit-scrollbar { width: 4px; }
-        .chat-scroll::-webkit-scrollbar-track { background: rgba(0,0,0,0.1); }
+        .chat-scroll::-webkit-scrollbar-track { background: rgba(0,0,0,0.2); }
         .chat-scroll::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
 
         textarea { resize: none; }
         
-        /* Mesaj Balonları */
-        .msg-me { align-self: flex-end; background: #0284c7; color: white; border-bottom-right-radius: 2px; }
+        /* Mesaj Balonları - Temaya uygun renkler */
+        .msg-me { align-self: flex-end; background: #ea580c; color: white; border-bottom-right-radius: 2px; } /* Turuncu/Kızıl */
         .msg-other { align-self: flex-start; background: #334155; color: white; border-bottom-left-radius: 2px; }
+
+        /* Mesaj Aksiyon Butonları */
+        .msg-actions {
+            opacity: 0.7;
+            transition: opacity 0.2s;
+            margin-top: 4px;
+            padding-top: 4px;
+            border-top: 1px solid rgba(255,255,255,0.2);
+            display: flex;
+            justify-content: flex-end;
+            gap: 8px;
+        }
+        .msg-actions:hover { opacity: 1; }
+        .msg-action-btn { font-size: 10px; cursor: pointer; }
+        .msg-action-btn:hover { text-decoration: underline; }
+
     </style>
 </head>
 <body class="min-h-screen flex flex-col items-center justify-center p-4 relative overflow-hidden">
 
-    <!-- Arkaplan Efektleri -->
-    <div class="absolute top-0 left-0 w-full h-full -z-10">
-        <div class="absolute top-10 left-10 w-64 h-64 bg-purple-600 rounded-full blur-[100px] opacity-20"></div>
-        <div class="absolute bottom-10 right-10 w-64 h-64 bg-blue-600 rounded-full blur-[100px] opacity-20"></div>
-    </div>
+    <!-- Koyu Perde (Overlay) -->
+    <div class="bg-overlay"></div>
 
     <!-- 1. BEKLEME EKRANI -->
-    <div id="waiting-screen" class="glass-panel p-8 rounded-2xl text-center max-w-md w-full z-10">
+    <div id="waiting-screen" class="glass-panel p-8 rounded-2xl text-center max-w-md w-full z-10 border-t-4 border-slate-600">
         <div class="animate-pulse mb-4">
-            <i class="fa-solid fa-hourglass-half text-4xl text-slate-500"></i>
+            <i class="fa-solid fa-dragon text-4xl text-slate-500"></i>
         </div>
-        <h2 class="text-xl font-bold text-slate-300">Yönetici Bekleniyor...</h2>
-        <p class="text-sm text-slate-500 mt-2">Şu an aktif bir çekiliş yok. Lütfen bekleyin.</p>
+        <h2 class="text-xl font-bold text-slate-200 tracking-wider">YÖNETİCİ BEKLENİYOR</h2>
+        <p class="text-sm text-slate-400 mt-2">Şu an aktif bir etkinlik yok. Savaşçılar dinleniyor...</p>
     </div>
 
     <!-- 2. ANA EKRAN -->
-    <div id="join-screen" class="glass-panel p-6 rounded-2xl max-w-md w-full hidden flex flex-col gap-4 z-10">
+    <div id="join-screen" class="glass-panel p-6 rounded-2xl max-w-md w-full hidden flex flex-col gap-4 z-10 border-t-4 border-amber-600/50">
         
         <!-- Üst Başlık -->
         <div class="text-center">
-            <h2 id="game-title" class="text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-sky-400 to-purple-400 uppercase">ÇEKİLİŞ AKTİF</h2>
-            <p class="text-xs text-slate-400 mt-1">Katılmak için giriş yapmalısın</p>
+            <h2 id="game-title" class="text-2xl font-bold text-amber-500 uppercase drop-shadow-md">ÇEKİLİŞ AKTİF</h2>
+            <p class="text-xs text-slate-400 mt-1 font-sans">Maceraya katılmak için kimliğini doğrula</p>
         </div>
 
         <!-- AUTH SİSTEMİ -->
@@ -63,7 +107,7 @@
             <!-- Sekmeler -->
             <div class="flex justify-between border-b border-slate-700 mb-4 pb-2">
                 <button onclick="switchTab('login')" id="tab-login" class="tab-btn active text-sm font-bold uppercase pb-2 w-1/3">Giriş</button>
-                <button onclick="switchTab('register')" id="tab-register" class="tab-btn text-sm font-bold uppercase pb-2 w-1/3">Yeni Kayıt</button>
+                <button onclick="switchTab('register')" id="tab-register" class="tab-btn text-sm font-bold uppercase pb-2 w-1/3">Kayıt Ol</button>
                 <button onclick="switchTab('edit')" id="tab-edit" class="tab-btn text-sm font-bold uppercase pb-2 w-1/3">Düzenle</button>
             </div>
 
@@ -71,14 +115,14 @@
             <div id="view-login" class="space-y-3">
                 <div>
                     <label class="text-xs font-bold text-slate-400 uppercase ml-1">Kullanıcı Adı (Nick)</label>
-                    <input type="text" id="login-nick" class="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white focus:border-sky-500 outline-none transition" placeholder="Nickiniz...">
+                    <input type="text" id="login-nick" class="w-full bg-slate-900/80 border border-slate-700 rounded-lg p-3 text-white focus:border-amber-500 outline-none transition" placeholder="Savaşçı Adın...">
                 </div>
                 <div>
                     <label class="text-xs font-bold text-slate-400 uppercase ml-1">Şifre (6 Haneli PIN)</label>
-                    <input type="password" id="login-pin" maxlength="6" class="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white focus:border-sky-500 outline-none transition tracking-widest" placeholder="******">
+                    <input type="password" id="login-pin" maxlength="6" class="w-full bg-slate-900/80 border border-slate-700 rounded-lg p-3 text-white focus:border-amber-500 outline-none transition tracking-widest" placeholder="******">
                 </div>
-                <button onclick="handleLogin()" class="w-full bg-sky-600 hover:bg-sky-500 text-white py-3 rounded-xl font-bold transition shadow-lg shadow-sky-900/40">
-                    GİRİŞ YAP
+                <button onclick="handleLogin()" class="w-full bg-amber-700 hover:bg-amber-600 text-white py-3 rounded-lg font-bold transition shadow-lg shadow-amber-900/40 border border-amber-500/30">
+                    MEYDANA GİR
                 </button>
             </div>
 
@@ -86,58 +130,58 @@
             <div id="view-register" class="space-y-3 hidden">
                 <div>
                     <label class="text-xs font-bold text-slate-400 uppercase ml-1">Kullanıcı Adı Seç</label>
-                    <input type="text" id="reg-nick" class="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white focus:border-green-500 outline-none transition" placeholder="Yeni Nick...">
+                    <input type="text" id="reg-nick" class="w-full bg-slate-900/80 border border-slate-700 rounded-lg p-3 text-white focus:border-green-500 outline-none transition" placeholder="Yeni İsim...">
                 </div>
                 <div class="flex gap-2">
                     <div class="w-1/2">
                         <label class="text-xs font-bold text-slate-400 uppercase ml-1">Irk Seç</label>
-                        <select id="reg-race" class="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white focus:border-green-500 outline-none transition cursor-pointer">
+                        <select id="reg-race" class="w-full bg-slate-900/80 border border-slate-700 rounded-lg p-3 text-white focus:border-green-500 outline-none transition cursor-pointer">
                             <option value="human">İnsan</option>
                             <option value="magron">Magron</option>
                         </select>
                     </div>
                     <div class="w-1/2">
                         <label class="text-xs font-bold text-slate-400 uppercase ml-1">Şifre Belirle</label>
-                        <input type="text" id="reg-pin" maxlength="6" class="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white focus:border-green-500 outline-none transition tracking-widest text-center" placeholder="6 Rakam">
+                        <input type="text" id="reg-pin" maxlength="6" class="w-full bg-slate-900/80 border border-slate-700 rounded-lg p-3 text-white focus:border-green-500 outline-none transition tracking-widest text-center" placeholder="6 Rakam">
                     </div>
                 </div>
                 <p class="text-[10px] text-slate-500 italic">*Şifrenizi unutmayın, sonraki girişler için gereklidir.</p>
-                <button onclick="handleRegister()" class="w-full bg-green-600 hover:bg-green-500 text-white py-3 rounded-xl font-bold transition shadow-lg shadow-green-900/40">
-                    PROFİL OLUŞTUR
+                <button onclick="handleRegister()" class="w-full bg-green-800 hover:bg-green-700 text-white py-3 rounded-lg font-bold transition shadow-lg shadow-green-900/40 border border-green-500/30">
+                    KAYDI TAMAMLA
                 </button>
             </div>
 
             <!-- TAB 3: DÜZENLE -->
             <div id="view-edit" class="space-y-3 hidden">
                 <div id="edit-auth-step">
-                    <p class="text-xs text-yellow-500 mb-2">Profil düzenlemek için mevcut bilgilerinizi girin:</p>
-                    <input type="text" id="edit-old-nick" class="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white mb-2" placeholder="Mevcut Nick">
-                    <input type="password" id="edit-old-pin" maxlength="6" class="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white mb-2 tracking-widest" placeholder="Mevcut Şifre">
-                    <button onclick="verifyForEdit()" class="w-full bg-slate-700 hover:bg-slate-600 py-2 rounded-xl text-sm font-bold">Doğrula ve Düzenle</button>
+                    <p class="text-xs text-amber-500 mb-2">Profil düzenlemek için mevcut bilgilerinizi girin:</p>
+                    <input type="text" id="edit-old-nick" class="w-full bg-slate-900/80 border border-slate-700 rounded-lg p-3 text-white mb-2" placeholder="Mevcut Nick">
+                    <input type="password" id="edit-old-pin" maxlength="6" class="w-full bg-slate-900/80 border border-slate-700 rounded-lg p-3 text-white mb-2 tracking-widest" placeholder="Mevcut Şifre">
+                    <button onclick="verifyForEdit()" class="w-full bg-slate-700 hover:bg-slate-600 py-2 rounded-lg text-sm font-bold">Doğrula</button>
                 </div>
                 
                 <div id="edit-form-step" class="hidden space-y-3 border-t border-slate-700 pt-3 mt-2">
-                    <div class="bg-yellow-500/10 border border-yellow-500/20 p-2 rounded text-center mb-2">
-                        <p class="text-xs text-yellow-200">Değişiklikler anında yansır.</p>
+                    <div class="bg-amber-500/10 border border-amber-500/20 p-2 rounded text-center mb-2">
+                        <p class="text-xs text-amber-200">Değişiklikler anında yansır.</p>
                     </div>
                     <div>
                         <label class="text-xs font-bold text-slate-400 uppercase ml-1">Yeni Nick</label>
-                        <input type="text" id="edit-new-nick" class="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white focus:border-yellow-500" placeholder="Yeni Nick">
+                        <input type="text" id="edit-new-nick" class="w-full bg-slate-900/80 border border-slate-700 rounded-lg p-3 text-white focus:border-amber-500" placeholder="Yeni Nick">
                     </div>
                     <div class="flex gap-2">
                         <div class="w-1/2">
                              <label class="text-xs font-bold text-slate-400 uppercase ml-1">Yeni Irk</label>
-                             <select id="edit-new-race" class="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white focus:border-yellow-500">
+                             <select id="edit-new-race" class="w-full bg-slate-900/80 border border-slate-700 rounded-lg p-3 text-white focus:border-amber-500">
                                 <option value="human">İnsan</option>
                                 <option value="magron">Magron</option>
                             </select>
                         </div>
                         <div class="w-1/2">
                             <label class="text-xs font-bold text-slate-400 uppercase ml-1">Yeni Şifre</label>
-                            <input type="text" id="edit-new-pin" maxlength="6" class="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white focus:border-yellow-500 text-center tracking-widest" placeholder="Yeni Şifre">
+                            <input type="text" id="edit-new-pin" maxlength="6" class="w-full bg-slate-900/80 border border-slate-700 rounded-lg p-3 text-white focus:border-amber-500 text-center tracking-widest" placeholder="Yeni Şifre">
                         </div>
                     </div>
-                    <button onclick="submitEdit()" class="w-full bg-yellow-600 hover:bg-yellow-500 text-white py-3 rounded-xl font-bold shadow-lg shadow-yellow-900/40">GÜNCELLE</button>
+                    <button onclick="submitEdit()" class="w-full bg-amber-600 hover:bg-amber-500 text-white py-3 rounded-lg font-bold shadow-lg shadow-amber-900/40">GÜNCELLE</button>
                 </div>
             </div>
         </div>
@@ -146,11 +190,11 @@
         <div id="game-input-container" class="hidden fade-in border-t border-slate-700 pt-4">
             <div class="flex items-center justify-between mb-4 bg-slate-800/50 p-3 rounded-lg border border-slate-700">
                 <div class="flex items-center gap-3">
-                    <div id="profile-race-icon" class="w-10 h-10 rounded-full flex items-center justify-center bg-slate-700 text-xl">
+                    <div id="profile-race-icon" class="w-10 h-10 rounded-full flex items-center justify-center bg-slate-700 text-xl shadow-inner">
                         👤
                     </div>
                     <div>
-                        <p id="profile-display-nick" class="font-bold text-white text-sm">Oyuncu</p>
+                        <p id="profile-display-nick" class="font-bold text-amber-100 text-sm">Oyuncu</p>
                         <p id="profile-display-race" class="text-xs text-slate-400">Irk</p>
                     </div>
                 </div>
@@ -161,29 +205,29 @@
             </div>
 
             <div id="extra-input-area" class="hidden mb-3">
-                <label id="extra-label" class="text-xs font-bold text-yellow-500 uppercase ml-1">Tahmin</label>
-                <input type="text" id="extra-input" class="w-full bg-slate-800 border border-yellow-600/50 rounded-xl p-3 text-white focus:border-yellow-500 outline-none transition" placeholder="...">
-                <p id="extra-hint" class="text-[10px] text-slate-500 mt-1 italic"></p>
+                <label id="extra-label" class="text-xs font-bold text-amber-500 uppercase ml-1">Tahmin</label>
+                <input type="text" id="extra-input" class="w-full bg-slate-900/80 border border-amber-600/50 rounded-lg p-3 text-white focus:border-amber-500 outline-none transition" placeholder="...">
+                <p id="extra-hint" class="text-[10px] text-slate-400 mt-1 italic"></p>
             </div>
 
             <div class="mb-4">
                 <label class="text-xs font-bold text-slate-400 uppercase ml-1">Yönetici için Not (Opsiyonel)</label>
-                <textarea id="player-note" rows="2" class="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white focus:border-sky-500 outline-none transition text-sm" placeholder="Buraya bir not bırakabilirsiniz..."></textarea>
+                <textarea id="player-note" rows="2" class="w-full bg-slate-900/80 border border-slate-700 rounded-lg p-3 text-white focus:border-amber-500 outline-none transition text-sm" placeholder="Buraya bir not bırakabilirsiniz..."></textarea>
             </div>
 
-            <button id="join-btn" onclick="submitEntry()" class="w-full bg-gradient-to-r from-sky-600 to-blue-600 hover:from-sky-500 hover:to-blue-500 py-4 rounded-xl font-bold uppercase tracking-widest transition transform active:scale-95 shadow-lg shadow-sky-900/50">
-                ÇEKİLİŞE KATIL
+            <button id="join-btn" onclick="submitEntry()" class="w-full bg-gradient-to-r from-blue-700 to-indigo-700 hover:from-blue-600 hover:to-indigo-600 border border-blue-500/30 py-4 rounded-lg font-bold uppercase tracking-widest transition transform active:scale-95 shadow-lg shadow-blue-900/50">
+                <i class="fa-solid fa-scroll mr-2"></i>KATILIM GÖNDER
             </button>
         </div>
     </div>
 
     <!-- 3. BAŞARI EKRANI -->
-    <div id="success-screen" class="glass-panel p-8 rounded-2xl text-center max-w-md w-full hidden z-10">
+    <div id="success-screen" class="glass-panel p-8 rounded-2xl text-center max-w-md w-full hidden z-10 border-t-4 border-green-600">
         <div class="w-16 h-16 bg-green-500/20 text-green-400 rounded-full flex items-center justify-center mx-auto mb-4 border border-green-500/50 animate-bounce">
             <i class="fa-solid fa-check text-2xl"></i>
         </div>
-        <h2 class="text-2xl font-bold text-white">ÇEKİLİŞE KATILDINIZ!</h2>
-        <p class="text-slate-400 text-sm mt-2">Kaydınız başarıyla yöneticiye iletildi.</p>
+        <h2 class="text-2xl font-bold text-white tracking-wide">BAŞARILI!</h2>
+        <p class="text-slate-400 text-sm mt-2">İsteğin yöneticiye iletildi.</p>
         
         <div class="mt-6 p-4 bg-slate-800/50 rounded-xl border border-slate-700/50">
             <button onclick="editEntryAgain()" class="w-full bg-slate-700 hover:bg-slate-600 text-white py-2 rounded-lg text-sm transition">
@@ -196,35 +240,35 @@
     <!--            SOHBET & SESLİ İLETİŞİM             -->
     <!-- ============================================== -->
 
-    <!-- Sohbet Açma Butonu (Floating) -->
-    <button id="chat-toggle-btn" onclick="toggleChat()" class="fixed bottom-6 right-6 w-14 h-14 bg-sky-600 hover:bg-sky-500 text-white rounded-full shadow-2xl flex items-center justify-center transition transform hover:scale-110 z-50 hidden">
+    <!-- Sohbet Açma Butonu (Başlangıçta GİZLİ) -->
+    <button id="chat-toggle-btn" onclick="toggleChat()" class="fixed bottom-6 right-6 w-14 h-14 bg-slate-800 hover:bg-slate-700 border border-amber-500/50 text-amber-500 rounded-full shadow-2xl flex items-center justify-center transition transform hover:scale-110 z-50 hidden">
         <i class="fa-solid fa-comments text-xl"></i>
-        <span id="chat-badge" class="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full hidden border border-white"></span>
+        <span id="chat-badge" class="absolute -top-1 -right-1 w-4 h-4 bg-red-600 rounded-full hidden border border-white"></span>
     </button>
 
     <!-- Sohbet Paneli (Drawer) -->
-    <div id="chat-panel" class="fixed bottom-24 right-6 w-80 h-96 glass-panel rounded-2xl flex flex-col overflow-hidden shadow-2xl transition-all duration-300 transform translate-y-[120%] z-50">
+    <div id="chat-panel" class="fixed bottom-24 right-6 w-80 h-96 glass-panel rounded-xl flex flex-col overflow-hidden shadow-2xl transition-all duration-300 transform translate-y-[120%] z-50 border border-slate-600">
         <!-- Başlık -->
-        <div class="bg-slate-800/80 p-3 border-b border-slate-700 flex justify-between items-center">
+        <div class="bg-slate-900/90 p-3 border-b border-slate-700 flex justify-between items-center">
             <div class="flex items-center gap-2">
                 <div class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                <h3 class="font-bold text-sm text-slate-200">Sohbet Odası</h3>
+                <h3 class="font-bold text-sm text-amber-500 font-cinzel">Meydan Sohbeti</h3>
             </div>
             <button onclick="toggleChat()" class="text-slate-400 hover:text-white"><i class="fa-solid fa-times"></i></button>
         </div>
 
         <!-- Mesaj Alanı -->
-        <div id="chat-messages" class="flex-1 p-3 overflow-y-auto chat-scroll flex flex-col gap-2 bg-slate-900/50">
-            <div class="text-center text-xs text-slate-500 mt-2">Sohbet odasına bağlandınız.</div>
+        <div id="chat-messages" class="flex-1 p-3 overflow-y-auto chat-scroll flex flex-col gap-2 bg-slate-900/60">
+            <div class="text-center text-xs text-slate-500 mt-2">Bağlantı kuruldu...</div>
         </div>
 
         <!-- Input Alanı -->
-        <div class="p-2 bg-slate-800 border-t border-slate-700">
+        <div class="p-2 bg-slate-800/90 border-t border-slate-700">
             <div class="flex items-center gap-2">
-                <input type="text" id="chat-input" class="flex-1 bg-slate-900 border border-slate-600 rounded-full px-4 py-2 text-xs text-white focus:border-sky-500 outline-none" placeholder="Mesaj yaz...">
+                <input type="text" id="chat-input" class="flex-1 bg-slate-900 border border-slate-600 rounded-full px-4 py-2 text-xs text-white focus:border-amber-500 outline-none" placeholder="Mesaj...">
                 
                 <!-- Gönder Butonu -->
-                <button onclick="sendTextMessage()" class="w-8 h-8 rounded-full bg-sky-600 hover:bg-sky-500 text-white flex items-center justify-center shadow-lg">
+                <button onclick="sendTextMessage()" class="w-8 h-8 rounded-full bg-amber-700 hover:bg-amber-600 text-white flex items-center justify-center shadow-lg transition">
                     <i class="fa-solid fa-paper-plane text-xs"></i>
                 </button>
 
@@ -232,12 +276,12 @@
                 <button id="mic-btn" 
                     onmousedown="startRecording()" onmouseup="stopRecording()" 
                     ontouchstart="startRecording()" ontouchend="stopRecording()"
-                    class="w-8 h-8 rounded-full bg-slate-700 hover:bg-slate-600 text-white flex items-center justify-center shadow-lg select-none transition-colors">
+                    class="w-8 h-8 rounded-full bg-slate-700 hover:bg-slate-600 text-white flex items-center justify-center shadow-lg select-none transition-colors border border-slate-500">
                     <i class="fa-solid fa-microphone text-xs"></i>
                 </button>
             </div>
             <div id="recording-status" class="text-[10px] text-red-400 text-center mt-1 hidden animate-pulse font-bold">
-                ● KAYDEDİLİYOR (Basılı Tutun)
+                ● KAYDEDİLİYOR
             </div>
         </div>
     </div>
@@ -306,6 +350,7 @@
 
         function initChat() {
             if(!loggedInPlayer) return;
+            // Sohbet butonunu sadece giriş yapıldığında göster
             document.getElementById('chat-toggle-btn').classList.remove('hidden');
 
             const chatRef = collection(db, "artifacts", "default", "public", "data", "chat_messages");
@@ -313,13 +358,13 @@
 
             onSnapshot(q, (snapshot) => {
                 const chatContainer = document.getElementById('chat-messages');
-                // Basit bir yöntem: İçeriği temizle ve yeniden bas (daha iyi performans için append yapılabilir ama bu ölçekte yeterli)
-                chatContainer.innerHTML = '<div class="text-center text-xs text-slate-500 mt-2">Sohbet odasına bağlandınız.</div>';
+                chatContainer.innerHTML = '<div class="text-center text-xs text-slate-500 mt-2">Bağlantı kuruldu...</div>';
                 
                 let isNewMessage = false;
 
-                snapshot.forEach((doc) => {
-                    const msg = doc.data();
+                snapshot.forEach((docSnap) => {
+                    const msg = docSnap.data();
+                    const msgId = docSnap.id; // Düzenleme ve silme için ID
                     const isMe = msg.uid === currentUser.uid;
                     const time = msg.timestamp ? new Date(msg.timestamp.toDate()).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : '...';
                     
@@ -331,7 +376,7 @@
                     if (msg.type === 'audio') {
                         contentHtml = `
                             <div class="flex items-center gap-2">
-                                <i class="fa-solid fa-play-circle text-lg cursor-pointer hover:text-sky-300" onclick="this.nextElementSibling.play()"></i>
+                                <i class="fa-solid fa-play-circle text-lg cursor-pointer hover:text-amber-300" onclick="this.nextElementSibling.play()"></i>
                                 <audio src="${msg.content}" class="hidden"></audio>
                                 <div class="flex flex-col">
                                     <span class="font-bold text-[10px] opacity-70">🎤 Sesli Mesaj</span>
@@ -340,7 +385,18 @@
                             </div>
                         `;
                     } else {
-                        contentHtml = `<span>${msg.content}</span>`;
+                        contentHtml = `<span id="msg-txt-${msgId}">${msg.content}</span>`;
+                    }
+
+                    // Düzenle/Sil Butonları (Sadece kendi mesajıysa ve metinse)
+                    let actionsHtml = '';
+                    if (isMe) {
+                        actionsHtml = `
+                            <div class="msg-actions">
+                                ${msg.type === 'text' ? `<span onclick="editMessage('${msgId}', '${msg.content.replace(/'/g, "\\'")}')" class="msg-action-btn text-amber-200"><i class="fa-solid fa-pen"></i></span>` : ''}
+                                <span onclick="deleteMessage('${msgId}')" class="msg-action-btn text-red-300"><i class="fa-solid fa-trash"></i></span>
+                            </div>
+                        `;
                     }
 
                     div.innerHTML = `
@@ -349,6 +405,7 @@
                             <span>${time}</span>
                         </div>
                         ${contentHtml}
+                        ${actionsHtml}
                     `;
                     chatContainer.appendChild(div);
                     isNewMessage = true;
@@ -362,6 +419,27 @@
                 }
             });
         }
+
+        // --- SOHBET DÜZENLEME & SİLME FONKSİYONLARI ---
+        window.deleteMessage = async (msgId) => {
+            if(confirm("Bu mesajı silmek istediğine emin misin?")) {
+                try {
+                    await deleteDoc(doc(db, "artifacts", "default", "public", "data", "chat_messages", msgId));
+                } catch(e) { console.error("Silme hatası", e); }
+            }
+        };
+
+        window.editMessage = async (msgId, oldContent) => {
+            const newContent = prompt("Mesajını düzenle:", oldContent);
+            if (newContent !== null && newContent.trim() !== "" && newContent !== oldContent) {
+                try {
+                    await updateDoc(doc(db, "artifacts", "default", "public", "data", "chat_messages", msgId), {
+                        content: newContent.trim()
+                    });
+                } catch(e) { console.error("Düzenleme hatası", e); }
+            }
+        };
+        // --------------------------------------------------
 
         function scrollToBottom() {
             const chatContainer = document.getElementById('chat-messages');
@@ -404,12 +482,10 @@
 
                 mediaRecorder.onstop = async () => {
                     const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
-                    // Blob'u Base64'e çevir (Firestore'a kaydetmek için - Not: Büyük dosyalar için Storage kullanılmalı ama 5-10sn ses için bu yöntem hızlı ve pratik)
                     const reader = new FileReader();
                     reader.readAsDataURL(audioBlob);
                     reader.onloadend = async () => {
                         const base64Audio = reader.result;
-                        // Firestore'a kaydet
                         await addDoc(collection(db, "artifacts", "default", "public", "data", "chat_messages"), {
                             content: base64Audio,
                             type: 'audio',
@@ -419,13 +495,11 @@
                         });
                     };
                     
-                    // Stream'i kapat
                     stream.getTracks().forEach(track => track.stop());
                 };
 
                 mediaRecorder.start();
                 
-                // UI Güncelle
                 document.getElementById('mic-btn').classList.add('bg-red-600', 'recording-pulse');
                 document.getElementById('mic-btn').classList.remove('bg-slate-700');
                 document.getElementById('recording-status').classList.remove('hidden');
@@ -439,14 +513,13 @@
         window.stopRecording = () => {
             if (mediaRecorder && mediaRecorder.state !== 'inactive') {
                 mediaRecorder.stop();
-                // UI Reset
                 document.getElementById('mic-btn').classList.remove('bg-red-600', 'recording-pulse');
                 document.getElementById('mic-btn').classList.add('bg-slate-700');
                 document.getElementById('recording-status').classList.add('hidden');
             }
         };
 
-        // --- MEVCUT OYUN KODLARI (Aynı kaldı, sadece loginSuccess içinde initChat çağrıldı) ---
+        // --- MEVCUT OYUN KODLARI ---
         
         function listenToGame() {
             const stateRef = doc(db, "artifacts/default/public/data/active/state");
@@ -463,8 +536,11 @@
                     const data = docSnap.data();
                     if (activeGameState && data.round === activeGameState.round) {
                         hasJoinedCurrentRound = true;
+                        // Not alanını güncelle, eğer kullanıcı o an yazmıyorsa
                         const noteField = document.getElementById('player-note');
-                        if (noteField && document.activeElement !== noteField) noteField.value = data.note || "";
+                        if (noteField && document.activeElement !== noteField) {
+                            noteField.value = data.note || ""; 
+                        }
                         if (!document.getElementById('game-input-container').classList.contains('active-edit-mode')) showScreen('success');
                     }
                 } else {
@@ -477,7 +553,7 @@
             if (activeGameState && activeGameState.round !== newState.round) {
                 hasJoinedCurrentRound = false;
                 document.getElementById('extra-input').value = "";
-                document.getElementById('player-note').value = "";
+                document.getElementById('player-note').value = ""; // Yeni turda notu temizle
                 showScreen('join'); 
             }
             activeGameState = newState;
@@ -531,7 +607,6 @@
             } catch (error) { alert("Kayıt hatası: " + error.message); }
         };
 
-        // Edit fonksiyonları (Verify, Submit vs.) önceki kodla aynı, yer kaplamaması için özet geçiyorum
         let editCurrentNick = "";
         function checkAutoEdit() {
             if(loggedInPlayer) {
@@ -586,7 +661,10 @@
             loggedInPlayer = { nick, race, pin };
             localStorage.setItem('dwar_player_session', JSON.stringify(loggedInPlayer));
             updateProfileUI();
-            initChat(); // SOHBETİ BAŞLAT
+            
+            // BURASI KRİTİK: Sohbeti SADECE giriş başarılı olduğunda başlat
+            initChat(); 
+            
             document.getElementById('auth-container').classList.add('hidden');
             document.getElementById('game-input-container').classList.remove('hidden');
         }
@@ -598,14 +676,23 @@
             const iconEl = document.getElementById('profile-race-icon');
             if(loggedInPlayer.race === 'magron') {
                 iconEl.innerHTML = '<i class="fa-solid fa-fire text-red-500"></i>';
-                iconEl.className = "w-10 h-10 rounded-full flex items-center justify-center bg-red-900/30 border border-red-500/30 text-xl";
+                iconEl.className = "w-10 h-10 rounded-full flex items-center justify-center bg-red-900/30 border border-red-500/30 text-xl shadow-[0_0_10px_rgba(239,68,68,0.3)]";
             } else {
                 iconEl.innerHTML = '<i class="fa-solid fa-user-shield text-blue-400"></i>';
-                iconEl.className = "w-10 h-10 rounded-full flex items-center justify-center bg-blue-900/30 border border-blue-500/30 text-xl";
+                iconEl.className = "w-10 h-10 rounded-full flex items-center justify-center bg-blue-900/30 border border-blue-500/30 text-xl shadow-[0_0_10px_rgba(96,165,250,0.3)]";
             }
         }
 
-        window.logout = () => { localStorage.removeItem('dwar_player_session'); loggedInPlayer = null; location.reload(); };
+        window.logout = () => { 
+            // Çıkış yaparken sohbet butonunu gizle
+            document.getElementById('chat-toggle-btn').classList.add('hidden');
+            document.getElementById('chat-panel').classList.add('translate-y-[120%]');
+            
+            localStorage.removeItem('dwar_player_session'); 
+            loggedInPlayer = null; 
+            location.reload(); 
+        };
+
         window.switchTab = (tabName) => {
             ['login', 'register', 'edit'].forEach(t => {
                 document.getElementById(`tab-${t}`).classList.remove('active');
@@ -618,17 +705,23 @@
         window.editEntryAgain = () => {
             showScreen('join');
             const btn = document.getElementById('join-btn');
-            btn.innerText = "BİLGİLERİ GÜNCELLE";
-            btn.classList.add('from-yellow-600', 'to-orange-600');
+            btn.innerHTML = '<i class="fa-solid fa-pen-to-square mr-2"></i>BİLGİLERİ GÜNCELLE';
+            btn.classList.add('from-amber-700', 'to-orange-700');
             document.getElementById('game-input-container').classList.add('active-edit-mode');
         };
+        
         window.submitEntry = async () => {
             if (!loggedInPlayer) return alert("Oturum süresi dolmuş.");
+            
             const extra = document.getElementById('extra-input').value.trim();
-            const note = document.getElementById('player-note').value.trim();
+            // Not alanını explicit olarak alıyoruz
+            const noteField = document.getElementById('player-note');
+            const note = noteField ? noteField.value.trim() : "";
+            
             if (activeGameState.game === 'lucky' && !extra) return alert("Numaraları girin.");
+            
             const btn = document.getElementById('join-btn');
-            const originalText = btn.innerText;
+            const originalText = btn.innerHTML;
             btn.innerText = "GÖNDERİLİYOR..."; btn.disabled = true;
             try {
                 await setDoc(doc(db, "artifacts", "default", "public", "data", "entries", currentUser.uid), {
@@ -637,13 +730,13 @@
                     game: activeGameState.game,
                     round: activeGameState.round,
                     prediction: extra,
-                    note: note,
+                    note: note, // Not kesinlikle gönderiliyor
                     timestamp: new Date().toISOString()
                 }, { merge: true });
                 document.getElementById('game-input-container').classList.remove('active-edit-mode');
                 showScreen('success');
             } catch (error) { alert("Hata: " + error.message); } 
-            finally { btn.innerText = originalText; btn.disabled = false; }
+            finally { btn.innerHTML = originalText; btn.disabled = false; }
         };
 
         function setupFormForGame(gameType) {
@@ -655,8 +748,8 @@
             const joinBtn = document.getElementById('join-btn');
             extraArea.classList.add('hidden');
             if(!hasJoinedCurrentRound) {
-                joinBtn.innerText = "ÇEKİLİŞE KATIL";
-                joinBtn.classList.remove('from-yellow-600', 'to-orange-600');
+                joinBtn.innerHTML = '<i class="fa-solid fa-scroll mr-2"></i>ÇEKİLİŞE KATIL';
+                joinBtn.classList.remove('from-amber-700', 'to-orange-700');
             }
             const titles = { 'game': "KUTU OYUNU", 'wheel': "ŞANSLI ÇARK", 'ticket': "BİLET OYUNU", 'mirror': "AYNA OYUNU", 'lucky': "ŞANS TOPU", 'dice': "ZAR OYUNU" };
             titleEl.innerText = titles[gameType] || "ÇEKİLİŞ AKTİF";
