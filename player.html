@@ -99,7 +99,7 @@
         <!-- Üst Başlık -->
         <div class="text-center">
             <h2 id="game-title" class="text-2xl font-bold text-amber-500 uppercase drop-shadow-md">ÇEKİLİŞ AKTİF</h2>
-            <p class="text-xs text-red-500 mt-1 font-sans">⚠️Oyuncu Nickinizle Katılınız Aksi Durumda Ödül Alamazsınız! </p>
+            <p class="text-xs text-slate-400 mt-1 font-sans">Maceraya katılmak için kimliğini doğrula</p>
         </div>
 
         <!-- AUTH SİSTEMİ -->
@@ -237,7 +237,7 @@
     </div>
 
     <!-- ============================================== -->
-    <!--            SOHBET             -->
+    <!--            SOHBET & SESLİ İLETİŞİM             -->
     <!-- ============================================== -->
 
     <!-- Sohbet Açma Butonu (Başlangıçta GİZLİ) -->
@@ -271,6 +271,18 @@
                 <button onclick="sendTextMessage()" class="w-8 h-8 rounded-full bg-amber-700 hover:bg-amber-600 text-white flex items-center justify-center shadow-lg transition">
                     <i class="fa-solid fa-paper-plane text-xs"></i>
                 </button>
+
+                <!-- Ses Kayıt Butonu (Bas-Konuş) -->
+                <button id="mic-btn" 
+                    onmousedown="startRecording()" onmouseup="stopRecording()" 
+                    ontouchstart="startRecording()" ontouchend="stopRecording()"
+                    class="w-8 h-8 rounded-full bg-slate-700 hover:bg-slate-600 text-white flex items-center justify-center shadow-lg select-none transition-colors border border-slate-500">
+                    <i class="fa-solid fa-microphone text-xs"></i>
+                </button>
+            </div>
+            <div id="recording-status" class="text-[10px] text-red-400 text-center mt-1 hidden animate-pulse font-bold">
+                ● KAYDEDİLİYOR
+            </div>
         </div>
     </div>
 
@@ -451,6 +463,60 @@
                     timestamp: serverTimestamp()
                 });
             } catch(e) { console.error("Mesaj hatası", e); }
+        };
+
+        // SES KAYIT (BAS-KONUŞ)
+        window.startRecording = async () => {
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                return alert("Tarayıcınız ses kaydını desteklemiyor.");
+            }
+
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                mediaRecorder = new MediaRecorder(stream);
+                audioChunks = [];
+
+                mediaRecorder.ondataavailable = event => {
+                    audioChunks.push(event.data);
+                };
+
+                mediaRecorder.onstop = async () => {
+                    const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                    const reader = new FileReader();
+                    reader.readAsDataURL(audioBlob);
+                    reader.onloadend = async () => {
+                        const base64Audio = reader.result;
+                        await addDoc(collection(db, "artifacts", "default", "public", "data", "chat_messages"), {
+                            content: base64Audio,
+                            type: 'audio',
+                            nick: loggedInPlayer.nick,
+                            uid: currentUser.uid,
+                            timestamp: serverTimestamp()
+                        });
+                    };
+                    
+                    stream.getTracks().forEach(track => track.stop());
+                };
+
+                mediaRecorder.start();
+                
+                document.getElementById('mic-btn').classList.add('bg-red-600', 'recording-pulse');
+                document.getElementById('mic-btn').classList.remove('bg-slate-700');
+                document.getElementById('recording-status').classList.remove('hidden');
+
+            } catch (err) {
+                console.error("Mikrofon hatası:", err);
+                alert("Mikrofona erişilemedi. İzin verdiğinizden emin olun.");
+            }
+        };
+
+        window.stopRecording = () => {
+            if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+                mediaRecorder.stop();
+                document.getElementById('mic-btn').classList.remove('bg-red-600', 'recording-pulse');
+                document.getElementById('mic-btn').classList.add('bg-slate-700');
+                document.getElementById('recording-status').classList.add('hidden');
+            }
         };
 
         // --- MEVCUT OYUN KODLARI ---
@@ -703,7 +769,4 @@
     </script>
 </body>
 </html>
-
-
-
 
