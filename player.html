@@ -678,7 +678,7 @@
             if(!loggedInPlayer) return;
             document.getElementById('profile-display-nick').innerText = loggedInPlayer.nick;
             document.getElementById('profile-display-race').innerText = loggedInPlayer.race === 'human' ? 'İnsan' : 'Magron';
-            document.getElementById('profile-race-icon').innerText = loggedInPlayer.race === 'human' ? '👤' : '👹';
+            document.getElementById('profile-race-icon').innerText = loggedInPlayer.race === 'human' ? '🛡️' : '🔥';
             document.getElementById('profile-race-icon').className = `w-10 h-10 rounded-full flex items-center justify-center text-xl shadow-inner ${loggedInPlayer.race === 'human' ? 'bg-blue-900/50' : 'bg-red-900/50'}`;
         };
 
@@ -829,3 +829,4 @@
     </script>
 </body>
 </html>
+
