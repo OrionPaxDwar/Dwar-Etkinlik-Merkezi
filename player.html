@@ -90,7 +90,7 @@
             <i class="fa-solid fa-dragon text-4xl text-slate-500"></i>
         </div>
         <h2 class="text-xl font-bold text-slate-200 tracking-wider">YÖNETİCİ BEKLENİYOR</h2>
-        <p class="text-sm text-slate-400 mt-2">Şu an aktif bir etkinlik yok. Savaşçılar dinleniyor...</p>
+        <p class="text-sm text-slate-400 mt-2">Şu an aktif bir etkinlik yok veya katılım açılmadı. Savaşçılar dinleniyor...</p>
     </div>
 
     <!-- 2. ANA EKRAN -->
@@ -285,7 +285,6 @@
             </div>
         </div>
     </div>
-
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
@@ -519,13 +518,56 @@
             }
         };
 
-        // --- MEVCUT OYUN KODLARI ---
+        // --- GÜVENLİK KİLİDİ VE OYUN MANTIĞI ---
         
         function listenToGame() {
             const stateRef = doc(db, "artifacts/default/public/data/active/state");
             onSnapshot(stateRef, (docSnap) => {
-                if (docSnap.exists()) handleGameStateChange(docSnap.data());
+                if (docSnap.exists()) {
+                    handleGameStateChange(docSnap.data());
+                } else {
+                    handleGameStateChange(null);
+                }
             });
+        }
+
+        function handleGameStateChange(newState) {
+            // GÜVENLİK KİLİDİ 1: Eğer oyun verisi yoksa veya yönetici 'open' (katılımı aç) yapmadıysa KESİNLİKLE bekleme ekranında kal.
+            if (!newState || newState.status !== 'open') {
+                activeGameState = newState; // Durumu güncelle ama içeriği KİLİTLE
+                showScreen('waiting');
+                return; // Buradan aşağısı kesinlikle çalışmaz.
+            }
+
+            // GÜVENLİK KİLİDİ 2: Sadece status === 'open' olduğunda buraya geçeriz.
+            
+            // Eğer yeni tura geçildiyse ve katılım formu daha önce doldurulduysa sıfırla
+            if (activeGameState && activeGameState.round !== newState.round) {
+                hasJoinedCurrentRound = false;
+                document.getElementById('extra-input').value = "";
+                document.getElementById('player-note').value = "";
+            }
+            
+            activeGameState = newState;
+
+            // Duruma göre ekranı göster
+            if (!hasJoinedCurrentRound) {
+                showScreen('join');
+            } else {
+                showScreen('success');
+            }
+            
+            // Oyuna göre form alanlarını ayarla
+            setupFormForGame(newState.game);
+
+            // Giriş durumuna göre doğru formu/oyun ekranını göster
+            if (loggedInPlayer) {
+                document.getElementById('auth-container').classList.add('hidden');
+                document.getElementById('game-input-container').classList.remove('hidden');
+            } else {
+                document.getElementById('auth-container').classList.remove('hidden');
+                document.getElementById('game-input-container').classList.add('hidden');
+            }
         }
 
         function listenToMyEntry() {
@@ -536,12 +578,17 @@
                     const data = docSnap.data();
                     if (activeGameState && data.round === activeGameState.round) {
                         hasJoinedCurrentRound = true;
-                        // Not alanını güncelle, eğer kullanıcı o an yazmıyorsa
                         const noteField = document.getElementById('player-note');
                         if (noteField && document.activeElement !== noteField) {
                             noteField.value = data.note || ""; 
                         }
-                        if (!document.getElementById('game-input-container').classList.contains('active-edit-mode')) showScreen('success');
+                        
+                        // GÜVENLİK KİLİDİ 3: Eğer yönetici oyunu kapatmışsa (status !== 'open') başarı ekranı gösterme, beklemede kalsın.
+                        if (activeGameState && activeGameState.status === 'open') {
+                            if (!document.getElementById('game-input-container').classList.contains('active-edit-mode')) {
+                                showScreen('success');
+                            }
+                        }
                     }
                 } else {
                     hasJoinedCurrentRound = false;
@@ -549,42 +596,20 @@
             });
         }
 
-        function handleGameStateChange(newState) {
-            if (activeGameState && activeGameState.round !== newState.round) {
-                hasJoinedCurrentRound = false;
-                document.getElementById('extra-input').value = "";
-                document.getElementById('player-note').value = ""; // Yeni turda notu temizle
-                showScreen('join'); 
-            }
-            activeGameState = newState;
-            if (newState.status !== 'open') {
-                showScreen('waiting');
-                return;
-            }
-            if (!hasJoinedCurrentRound) showScreen('join');
-            else showScreen('success');
-            
-            setupFormForGame(newState.game);
-
-            if(loggedInPlayer) {
-                document.getElementById('auth-container').classList.add('hidden');
-                document.getElementById('game-input-container').classList.remove('hidden');
-            } else {
-                document.getElementById('auth-container').classList.remove('hidden');
-                document.getElementById('game-input-container').classList.add('hidden');
-            }
-        }
-
+        // --- GİRİŞ & KAYIT MANTIKLARI ---
+        
         window.handleLogin = async () => {
             const nick = document.getElementById('login-nick').value.trim();
             const pin = document.getElementById('login-pin').value.trim();
             if(!nick || !pin) return alert("Lütfen nick ve şifre girin.");
             try {
-                const profileRef = doc(db, "artifacts", "default", "public", "data", "player_profiles", nick);
+                const profileRef = doc(db, "artifacts/default/public/data/player_profiles", nick);
                 const docSnap = await getDoc(profileRef);
                 if (!docSnap.exists()) {
-                    alert("Kayıt bulunamadı.");
-                    switchTab('register'); document.getElementById('reg-nick').value = nick; return;
+                    alert("Kayıt bulunamadı. Kayıt bölümüne yönlendiriliyorsunuz.");
+                    switchTab('register'); 
+                    document.getElementById('reg-nick').value = nick; 
+                    return;
                 }
                 const data = docSnap.data();
                 if (data.pin !== pin) return alert("Hatalı şifre!");
@@ -597,176 +622,210 @@
             const race = document.getElementById('reg-race').value;
             const pin = document.getElementById('reg-pin').value.trim();
             if(!nick) return alert("Nick gerekli.");
-            if(!pin || pin.length !== 6 || isNaN(pin)) return alert("Şifre 6 haneli sayı olmalı.");
+            if(pin.length !== 6 || isNaN(pin)) return alert("Şifre 6 haneli sadece rakam olmalıdır.");
+            
             try {
-                const profileRef = doc(db, "artifacts", "default", "public", "data", "player_profiles", nick);
+                const profileRef = doc(db, "artifacts/default/public/data/player_profiles", nick);
                 const docSnap = await getDoc(profileRef);
-                if (docSnap.exists()) return alert("Bu nick zaten alınmış!");
-                await setDoc(profileRef, { nick, race, pin, createdAt: new Date().toISOString(), uid: currentUser.uid });
+                if (docSnap.exists()) return alert("Bu savaşçı adı zaten kullanımda!");
+
+                await setDoc(profileRef, { 
+                    nick, 
+                    race, 
+                    pin, 
+                    uid: currentUser.uid, 
+                    createdAt: serverTimestamp() 
+                });
+                
+                alert("Kayıt Başarılı! Meydana giriş yapıyorsunuz.");
                 loginSuccess(nick, race, pin);
             } catch (error) { alert("Kayıt hatası: " + error.message); }
         };
 
-        let editCurrentNick = "";
-        function checkAutoEdit() {
-            if(loggedInPlayer) {
-                editCurrentNick = loggedInPlayer.nick;
-                document.getElementById('edit-auth-step').classList.add('hidden');
-                document.getElementById('edit-form-step').classList.remove('hidden');
-                document.getElementById('edit-new-nick').value = loggedInPlayer.nick;
-                document.getElementById('edit-new-race').value = loggedInPlayer.race;
-                document.getElementById('edit-new-pin').value = loggedInPlayer.pin;
-                return true;
-            } return false;
-        }
-        window.verifyForEdit = async () => {
-             const nick = document.getElementById('edit-old-nick').value.trim();
-             const pin = document.getElementById('edit-old-pin').value.trim();
-             try {
-                const docSnap = await getDoc(doc(db, "artifacts", "default", "public", "data", "player_profiles", nick));
-                if (!docSnap.exists() || docSnap.data().pin !== pin) return alert("Hatalı bilgi.");
-                editCurrentNick = nick;
-                document.getElementById('edit-auth-step').classList.add('hidden');
-                document.getElementById('edit-form-step').classList.remove('hidden');
-                document.getElementById('edit-new-nick').value = nick;
-                document.getElementById('edit-new-race').value = docSnap.data().race;
-                document.getElementById('edit-new-pin').value = pin;
-             } catch(e) { alert("Hata: " + e.message); }
-        };
-        window.submitEdit = async () => {
-            const newNick = document.getElementById('edit-new-nick').value.trim();
-            const newRace = document.getElementById('edit-new-race').value;
-            const newPin = document.getElementById('edit-new-pin').value.trim();
-            if(!newNick || !newPin) return alert("Bilgileri girin.");
-            try {
-                if (newNick !== editCurrentNick) {
-                    const newRef = doc(db, "artifacts", "default", "public", "data", "player_profiles", newNick);
-                    if((await getDoc(newRef)).exists()) return alert("Nick kullanımda.");
-                    await setDoc(newRef, { nick: newNick, race: newRace, pin: newPin, uid: currentUser.uid });
-                    await deleteDoc(doc(db, "artifacts", "default", "public", "data", "player_profiles", editCurrentNick));
-                } else {
-                    await updateDoc(doc(db, "artifacts", "default", "public", "data", "player_profiles", editCurrentNick), { race: newRace, pin: newPin });
-                }
-                loginSuccess(newNick, newRace, newPin);
-                if (hasJoinedCurrentRound) {
-                     await setDoc(doc(db, "artifacts", "default", "public", "data", "entries", currentUser.uid), { nick: newNick, race: newRace }, { merge: true });
-                }
-                alert("Güncellendi.");
-                document.getElementById('auth-container').classList.add('hidden');
-                document.getElementById('game-input-container').classList.remove('hidden');
-            } catch(e) { alert("Hata: " + e.message); }
-        };
-
-        function loginSuccess(nick, race, pin) {
+        window.loginSuccess = (nick, race, pin) => {
             loggedInPlayer = { nick, race, pin };
             localStorage.setItem('dwar_player_session', JSON.stringify(loggedInPlayer));
             updateProfileUI();
+            initChat();
             
-            // BURASI KRİTİK: Sohbeti SADECE giriş başarılı olduğunda başlat
-            initChat(); 
-            
-            document.getElementById('auth-container').classList.add('hidden');
-            document.getElementById('game-input-container').classList.remove('hidden');
-        }
+            // Giriş yapınca ekranı güncelle (Eğer oyun açıksa katılım formu açılır)
+            if (activeGameState && activeGameState.status === 'open') {
+                document.getElementById('auth-container').classList.add('hidden');
+                document.getElementById('game-input-container').classList.remove('hidden');
+            }
+        };
 
-        function updateProfileUI() {
+        window.logout = () => {
+            loggedInPlayer = null;
+            localStorage.removeItem('dwar_player_session');
+            document.getElementById('chat-toggle-btn').classList.add('hidden');
+            if(isChatOpen) toggleChat();
+            
+            document.getElementById('auth-container').classList.remove('hidden');
+            document.getElementById('game-input-container').classList.add('hidden');
+
+            // GÜVENLİK KİLİDİ 4: Sadece oyun açıksa join ekranı göster, değilse bekleme ekranında kal.
+            if (activeGameState && activeGameState.status === 'open') {
+                showScreen('join');
+            } else {
+                showScreen('waiting');
+            }
+        };
+
+        // --- PROFİL VE DÜZENLEME MANTIKLARI ---
+
+        window.updateProfileUI = () => {
             if(!loggedInPlayer) return;
             document.getElementById('profile-display-nick').innerText = loggedInPlayer.nick;
             document.getElementById('profile-display-race').innerText = loggedInPlayer.race === 'human' ? 'İnsan' : 'Magron';
-            const iconEl = document.getElementById('profile-race-icon');
-            if(loggedInPlayer.race === 'magron') {
-                iconEl.innerHTML = '<i class="fa-solid fa-fire text-red-500"></i>';
-                iconEl.className = "w-10 h-10 rounded-full flex items-center justify-center bg-red-900/30 border border-red-500/30 text-xl shadow-[0_0_10px_rgba(239,68,68,0.3)]";
-            } else {
-                iconEl.innerHTML = '<i class="fa-solid fa-user-shield text-blue-400"></i>';
-                iconEl.className = "w-10 h-10 rounded-full flex items-center justify-center bg-blue-900/30 border border-blue-500/30 text-xl shadow-[0_0_10px_rgba(96,165,250,0.3)]";
-            }
-        }
-
-        window.logout = () => { 
-            // Çıkış yaparken sohbet butonunu gizle
-            document.getElementById('chat-toggle-btn').classList.add('hidden');
-            document.getElementById('chat-panel').classList.add('translate-y-[120%]');
-            
-            localStorage.removeItem('dwar_player_session'); 
-            loggedInPlayer = null; 
-            location.reload(); 
+            document.getElementById('profile-race-icon').innerText = loggedInPlayer.race === 'human' ? '👤' : '👹';
+            document.getElementById('profile-race-icon').className = `w-10 h-10 rounded-full flex items-center justify-center text-xl shadow-inner ${loggedInPlayer.race === 'human' ? 'bg-blue-900/50' : 'bg-red-900/50'}`;
         };
 
-        window.switchTab = (tabName) => {
+        window.switchTab = (tab) => {
             ['login', 'register', 'edit'].forEach(t => {
-                document.getElementById(`tab-${t}`).classList.remove('active');
+                document.getElementById(`tab-${t}`).classList.remove('active', 'border-amber-500', 'text-amber-500');
                 document.getElementById(`view-${t}`).classList.add('hidden');
             });
-            document.getElementById(`tab-${tabName}`).classList.add('active');
-            document.getElementById(`view-${tabName}`).classList.remove('hidden');
-            if(tabName === 'edit') checkAutoEdit();
-        };
-        window.editEntryAgain = () => {
-            showScreen('join');
-            const btn = document.getElementById('join-btn');
-            btn.innerHTML = '<i class="fa-solid fa-pen-to-square mr-2"></i>BİLGİLERİ GÜNCELLE';
-            btn.classList.add('from-amber-700', 'to-orange-700');
-            document.getElementById('game-input-container').classList.add('active-edit-mode');
-        };
-        
-        window.submitEntry = async () => {
-            if (!loggedInPlayer) return alert("Oturum süresi dolmuş.");
-            
-            const extra = document.getElementById('extra-input').value.trim();
-            // Not alanını explicit olarak alıyoruz
-            const noteField = document.getElementById('player-note');
-            const note = noteField ? noteField.value.trim() : "";
-            
-            if (activeGameState.game === 'lucky' && !extra) return alert("Numaraları girin.");
-            
-            const btn = document.getElementById('join-btn');
-            const originalText = btn.innerHTML;
-            btn.innerText = "GÖNDERİLİYOR..."; btn.disabled = true;
-            try {
-                await setDoc(doc(db, "artifacts", "default", "public", "data", "entries", currentUser.uid), {
-                    nick: loggedInPlayer.nick,
-                    race: loggedInPlayer.race,
-                    game: activeGameState.game,
-                    round: activeGameState.round,
-                    prediction: extra,
-                    note: note, // Not kesinlikle gönderiliyor
-                    timestamp: new Date().toISOString()
-                }, { merge: true });
-                document.getElementById('game-input-container').classList.remove('active-edit-mode');
-                showScreen('success');
-            } catch (error) { alert("Hata: " + error.message); } 
-            finally { btn.innerHTML = originalText; btn.disabled = false; }
+            document.getElementById(`tab-${tab}`).classList.add('active', 'border-amber-500', 'text-amber-500');
+            document.getElementById(`view-${tab}`).classList.remove('hidden');
         };
 
-        function setupFormForGame(gameType) {
-            const titleEl = document.getElementById('game-title');
+        window.verifyForEdit = async () => {
+            const oldNick = document.getElementById('edit-old-nick').value.trim();
+            const oldPin = document.getElementById('edit-old-pin').value.trim();
+            if(!oldNick || !oldPin) return alert("Lütfen bilgilerinizi eksiksiz girin.");
+            
+            try {
+                const profileRef = doc(db, "artifacts/default/public/data/player_profiles", oldNick);
+                const docSnap = await getDoc(profileRef);
+                if (docSnap.exists() && docSnap.data().pin === oldPin) {
+                    document.getElementById('edit-auth-step').classList.add('hidden');
+                    document.getElementById('edit-form-step').classList.remove('hidden');
+                    document.getElementById('edit-new-nick').value = oldNick;
+                    document.getElementById('edit-new-race').value = docSnap.data().race;
+                    document.getElementById('edit-new-pin').value = oldPin;
+                } else {
+                    alert("Girdiğiniz nick veya şifre hatalı!");
+                }
+            } catch(e) { alert("Doğrulama hatası: " + e.message); }
+        };
+
+        window.submitEdit = async () => {
+            const oldNick = document.getElementById('edit-old-nick').value.trim();
+            const newNick = document.getElementById('edit-new-nick').value.trim();
+            const newRace = document.getElementById('edit-new-race').value;
+            const newPin = document.getElementById('edit-new-pin').value.trim();
+            
+            if(!newNick || newPin.length !== 6 || isNaN(newPin)) return alert("Geçerli bir nick ve 6 haneli (rakam) şifre belirleyin.");
+            
+            try {
+                if (oldNick !== newNick) {
+                    // Yeni nick müsait mi?
+                    const newProfileRef = doc(db, "artifacts/default/public/data/player_profiles", newNick);
+                    const checkSnap = await getDoc(newProfileRef);
+                    if (checkSnap.exists()) return alert("Bu yeni nick maalesef başka biri tarafından kullanılıyor!");
+                    
+                    const oldProfileRef = doc(db, "artifacts/default/public/data/player_profiles", oldNick);
+                    const oldDoc = await getDoc(oldProfileRef);
+                    
+                    // Veriyi yeni nick ile kaydet, eskiyi sil
+                    await setDoc(newProfileRef, { ...oldDoc.data(), nick: newNick, race: newRace, pin: newPin });
+                    await deleteDoc(oldProfileRef);
+                } else {
+                    // Sadece şifre/ırk değiştiyse
+                    const profileRef = doc(db, "artifacts/default/public/data/player_profiles", oldNick);
+                    await updateDoc(profileRef, { race: newRace, pin: newPin });
+                }
+                
+                alert("Profilin başarıyla güncellendi!");
+                loginSuccess(newNick, newRace, newPin); // Oturumu da yenile
+                
+                // Formu sıfırla
+                switchTab('login');
+                document.getElementById('edit-auth-step').classList.remove('hidden');
+                document.getElementById('edit-form-step').classList.add('hidden');
+                document.getElementById('edit-old-nick').value = "";
+                document.getElementById('edit-old-pin').value = "";
+                
+            } catch(e) { alert("Güncelleme sırasında bir hata oluştu: " + e.message); }
+        };
+
+        // --- FORMLARI & EKRANLARI YÖNETME ---
+
+        window.setupFormForGame = (gameType) => {
             const extraArea = document.getElementById('extra-input-area');
             const extraLabel = document.getElementById('extra-label');
             const extraInput = document.getElementById('extra-input');
             const extraHint = document.getElementById('extra-hint');
-            const joinBtn = document.getElementById('join-btn');
-            extraArea.classList.add('hidden');
-            if(!hasJoinedCurrentRound) {
-                joinBtn.innerHTML = '<i class="fa-solid fa-scroll mr-2"></i>ÇEKİLİŞE KATIL';
-                joinBtn.classList.remove('from-amber-700', 'to-orange-700');
-            }
-            const titles = { 'game': "KUTU OYUNU", 'wheel': "ŞANSLI ÇARK", 'ticket': "BİLET OYUNU", 'mirror': "AYNA OYUNU", 'lucky': "ŞANS TOPU", 'dice': "ZAR OYUNU" };
+            const titleEl = document.getElementById('game-title');
+            
+            extraArea.classList.add('hidden'); // Varsayılan gizle
+            
+            const titles = { 
+                'game': "KUTU OYUNU", 
+                'wheel': "ŞANSLI ÇARK", 
+                'ticket': "BİLET OYUNU", 
+                'mirror': "AYNA OYUNU", 
+                'lucky': "ŞANS TOPU", 
+                'dice': "ZAR OYUNU" 
+            };
             titleEl.innerText = titles[gameType] || "ÇEKİLİŞ AKTİF";
+            
             if (gameType === 'lucky') {
-                extraArea.classList.remove('hidden'); extraLabel.innerText = "Şanslı Sayıların"; extraInput.placeholder = "Örn: 1-5-9"; extraHint.innerText = "3 adet rakam giriniz.";
+                extraArea.classList.remove('hidden'); 
+                extraLabel.innerText = "Şanslı Sayıların"; 
+                extraInput.placeholder = "Örn: 1-5-9"; 
+                extraHint.innerText = "3 adet rakam giriniz.";
             } else if (gameType === 'dice') {
-                extraArea.classList.remove('hidden'); extraLabel.innerText = "Zar Toplamı Tahmini"; extraInput.placeholder = "Örn: 18"; extraHint.innerText = "Beklediğiniz toplam sayı.";
+                extraArea.classList.remove('hidden'); 
+                extraLabel.innerText = "Zar Toplamı Tahmini"; 
+                extraInput.placeholder = "Örn: 18"; 
+                extraHint.innerText = "Beklediğiniz toplam sayı.";
             }
-        }
+        };
 
-        function showScreen(screenName) {
+        window.showScreen = (screenName) => {
             ['waiting-screen', 'join-screen', 'success-screen'].forEach(id => document.getElementById(id).classList.add('hidden'));
             if (screenName === 'waiting') document.getElementById('waiting-screen').classList.remove('hidden');
             if (screenName === 'join') document.getElementById('join-screen').classList.remove('hidden');
             if (screenName === 'success') document.getElementById('success-screen').classList.remove('hidden');
-        }
+        };
+
+        window.editEntryAgain = () => {
+            showScreen('join');
+            document.getElementById('game-input-container').classList.add('active-edit-mode');
+        };
+
+        window.submitEntry = async () => {
+            if(!loggedInPlayer || !activeGameState) return;
+            const note = document.getElementById('player-note').value.trim();
+            const extra = document.getElementById('extra-input').value.trim();
+            
+            const joinBtn = document.getElementById('join-btn');
+            joinBtn.disabled = true;
+            joinBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-2"></i>GÖNDERİLİYOR...';
+
+            try {
+                await setDoc(doc(db, "artifacts/default/public/data/entries", currentUser.uid), {
+                    nick: loggedInPlayer.nick,
+                    race: loggedInPlayer.race,
+                    game: activeGameState.game,
+                    round: activeGameState.round,
+                    note: note,
+                    extra: extra,
+                    timestamp: serverTimestamp()
+                });
+                hasJoinedCurrentRound = true;
+                showScreen('success');
+            } catch(e) {
+                alert("Katılım hatası: " + e.message);
+            } finally {
+                joinBtn.disabled = false;
+                joinBtn.innerHTML = '<i class="fa-solid fa-scroll mr-2"></i>KATILIM GÖNDER';
+            }
+        };
+
     </script>
 </body>
 </html>
-
