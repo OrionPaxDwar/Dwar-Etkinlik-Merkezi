@@ -1,1 +1,2345 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dwar Etkinlik Merkezi - Yönetim Paneli</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght=500;700;900&display=swap');
+        
+        body {
+            background: radial-gradient(ellipse at center, #1f1c18 0%, #0a0a0a 100%);
+            color: #f8fafc;
+            font-family: 'Rajdhani', sans-serif;
+            overflow: hidden;
+            height: 100vh;
+            margin: 0;
+        }
 
+        .glass-panel {
+            background: rgba(20, 20, 24, 0.85);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(251, 191, 36, 0.15);
+            box-shadow: inset 0 0 20px rgba(0,0,0,0.8), 0 10px 30px rgba(0,0,0,0.5);
+        }
+
+        /* --- ORTAK STİLLER --- */
+        .mirror-wrapper { perspective: 1000px; width: 100%; aspect-ratio: 1/1; }
+        .mirror-card { width: 100%; height: 100%; position: relative; transform-style: preserve-3d; transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1); cursor: pointer; }
+        .mirror-card.flipped { transform: rotateY(180deg); }
+        .mirror-front, .mirror-back { position: absolute; width: 100%; height: 100%; backface-visibility: hidden; border-radius: 12px; display: flex; align-items: center; justify-content: center; border: 2px solid rgba(251,191,36,0.3); }
+        .mirror-front { background: linear-gradient(135deg, #451a03 0%, #78350f 50%, #451a03 100%); box-shadow: inset 0 0 20px rgba(0,0,0,0.8); color: #fde68a; font-size: 2.5rem; font-weight: 900; }
+        .mirror-back { background: #0f0f11; border-color: #fbbf24; transform: rotateY(180deg); font-size: 3.5rem; font-weight: 900; }
+        .val-5 { color: #facc15; text-shadow: 0 0 15px rgba(250, 204, 21, 0.8); }
+        .val-2 { color: #cbd5e1; text-shadow: 0 0 15px rgba(148, 163, 184, 0.8); }
+        .val-1 { color: #ef4444; text-shadow: 0 0 15px rgba(239, 68, 68, 0.8); }
+        .selected-mirror { box-shadow: 0 0 35px #fbbf24; border: 3px solid #fbbf24 !important; z-index: 10; }
+        
+        .pyramid-item { padding: 4px 10px; background: rgba(0, 0, 0, 0.6); border: 1px solid rgba(251, 191, 36, 0.2); border-radius: 6px; font-size: 12px; color: #fbbf24; width: 100%; display: flex; justify-content: space-between; transition: all 0.3s; font-weight: bold; }
+        .pyramid-item.highlight { background: #d97706; color: #fff; border-color: #fde68a; font-weight: 900; box-shadow: 0 0 20px rgba(217, 119, 6, 0.8); }
+
+        .box-item { position: relative; perspective: 1000px; cursor: pointer; width: 100%; max-width: 140px; aspect-ratio: 1 / 1; margin: auto; }
+        .box-inner { position: relative; width: 100%; height: 100%; transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1); transform-style: preserve-3d; background: linear-gradient(135deg, #27272a, #09090b); border-radius: 12px; border: 1px solid rgba(251, 191, 36, 0.3); display: flex; align-items: center; justify-content: center; box-shadow: 0 5px 15px rgba(0,0,0,0.5); }
+        .box-item.opened .box-inner { transform: rotateY(180deg); background: #09090b; }
+        .box-front, .box-back { position: absolute; width: 100%; height: 100%; backface-visibility: hidden; display: flex; align-items: center; justify-content: center; border-radius: 12px; }
+        .box-back { transform: rotateY(180deg); background: rgba(217, 119, 6, 0.1); border: 2px solid rgba(251, 191, 36, 0.4); flex-direction: column; text-align: center; overflow: hidden; }
+        .box-number-badge { position: absolute; top: 0; left: 0; background: rgba(217, 119, 6, 0.8); color: #ffffff; padding: 2px 8px; font-size: 16px; font-weight: 900; border-bottom-right-radius: 10px; z-index: 10; }
+        .box-icon { font-size: 3.5rem; user-select: none; filter: drop-shadow(0 4px 4px rgba(0,0,0,0.5)); }
+        
+        .wheel-container { position: relative; perspective: 1200px; filter: drop-shadow(0 20px 50px rgba(0, 0, 0, 0.8)); transform: scale(0.85); }
+        .wheel-3d-wrapper { transform: rotateX(15deg); transform-style: preserve-3d; transition: transform 0.5s ease; }
+        .wheel-canvas { border: 12px solid #27272a; border-radius: 50%; background: #09090b; box-shadow: 0 10px 0 #000, 0 0 30px rgba(251, 191, 36, 0.2); }
+        .wheel-pointer { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); width: 40px; height: 50px; background: linear-gradient(to bottom, #facc15, #d97706); clip-path: polygon(50% 100%, 0% 0%, 100% 0%); z-index: 100; filter: drop-shadow(0 5px 5px rgba(0,0,0,0.8)); border: 2px solid #fff; }
+        
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #3f3f46; border-radius: 10px; }
+        .tab-btn.active { background: #d97706; color: #fff; border-color: #fbbf24; text-shadow: 0 1px 3px rgba(0,0,0,0.8); }
+        .hidden-page { display: none !important; }
+
+        .pool-item { background: rgba(0, 0, 0, 0.6); border: 1px solid rgba(251,191,36,0.15); border-radius: 8px; padding: 8px; display: flex; align-items: center; gap: 10px; transition: all 0.2s; }
+        .pool-item:hover { background: rgba(30, 30, 35, 0.9); border-color: rgba(251, 191, 36, 0.5); }
+        .pool-img { width: 40px; height: 40px; border-radius: 6px; object-fit: cover; background: #000; border: 1px solid #333; }
+
+        .war-reward-btn { background: linear-gradient(135deg, #f59e0b 0%, #b45309 100%); color: white; border: 1px solid #fbbf24; padding: 4px 10px; border-radius: 6px; font-size: 10px; font-weight: 900; text-transform: uppercase; cursor: pointer; box-shadow: 0 0 10px rgba(245, 158, 11, 0.4); transition: all 0.2s; }
+        .war-reward-btn:hover { transform: scale(1.05); box-shadow: 0 0 15px rgba(245, 158, 11, 0.6); }
+
+        .bulk-modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.9); backdrop-filter: blur(10px); z-index: 200; display: none; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.3s ease; }
+        .bulk-modal.active { display: flex; opacity: 1; }
+        .bulk-content { background: #0f0f11; border: 2px solid #fbbf24; padding: 2rem; border-radius: 1.5rem; max-width: 600px; width: 90%; position: relative; box-shadow: 0 0 50px rgba(251, 191, 36, 0.2); transform: scale(0.9); transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); }
+        .bulk-modal.active .bulk-content { transform: scale(1); }
+        .rules-close { position: absolute; top: 1rem; right: 1rem; background: rgba(255, 255, 255, 0.1); width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; color: #94a3b8; transition: all 0.2s; }
+        .rules-close:hover { background: #ef4444; color: white; }
+
+        .tab-btn.dragging { opacity: 0.4; transform: scale(0.95); border: 1px dashed #fbbf24; }
+        #tab-container { position: relative; }
+        
+        .coin-container { perspective: 1000px; width: 180px; height: 180px; margin: 0 auto; }
+        .coin { width: 100%; height: 100%; position: relative; transform-style: preserve-3d; transition: transform 3.2s cubic-bezier(0.1, 0.7, 0.1, 1); }
+        .coin.reset { transition: none; transform: rotateY(0deg); }
+        .coin-face { position: absolute; width: 100%; height: 100%; backface-visibility: hidden; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 38px; font-weight: 900; border: 10px solid #fbbf24; box-shadow: inset 0 0 15px rgba(0,0,0,0.8), 0 15px 30px rgba(0,0,0,0.6); text-shadow: 2px 2px 4px rgba(0,0,0,0.8); }
+        .coin-front { background: radial-gradient(circle at center, #f59e0b, #92400e); color: white; }
+        .coin-back { background: radial-gradient(circle at center, #94a3b8, #334155); color: #0f0f11; transform: rotateY(180deg); }
+
+        .active-msg-bubble {
+            font-size: 1.25rem; font-weight: 900; color: #fcd34d; background: rgba(0,0,0,0.9); 
+            padding: 0.75rem 1.5rem; border-radius: 1rem; border: 2px solid rgba(245,158,11,0.8); 
+            max-width: 50rem; width: 100%; text-align: center; box-shadow: 0 0 20px rgba(245,158,11,0.5); 
+            word-wrap: break-word; transition: all 0.3s ease; opacity: 0; transform: translateY(0.5rem); 
+            margin-top: 1rem;
+        }
+        .active-msg-bubble.show { opacity: 1; transform: translateY(0); }
+
+        @keyframes card-deal {
+            0% { opacity: 0; transform: scale(0.8) translateY(20px); }
+            100% { opacity: 1; transform: scale(1) translateY(0); }
+        }
+    </style>
+</head>
+<body class="flex flex-col h-screen overflow-hidden">
+    <div id="app-container" class="flex-1 flex flex-col p-4 pb-4 h-full overflow-hidden">
+
+        <header class="flex justify-between items-center mb-4 glass-panel p-4 rounded-2xl shrink-0">
+            <div class="flex items-center gap-4">
+                <div class="relative group">
+                    <img src="https://dwar.gen.tr/images/dragon_logo.png" alt="Dwar Logo" class="w-12 h-12 object-contain filter drop-shadow-[0_0_15px_rgba(251,191,36,0.8)] transition duration-300">
+                </div>
+                <div>
+                    <h1 class="text-2xl font-black tracking-widest uppercase italic leading-none text-amber-500 drop-shadow-[0_2px_2px_rgba(0,0,0,1)]">DWAR ETKİNLİK MERKEZİ</h1>
+                    <div class="text-[10px] text-zinc-400 font-bold tracking-widest uppercase flex gap-4">
+                        <span>Yönetici Paneli</span>
+                    </div>
+                </div>
+            </div>
+
+            <div id="global-yt-controls" class="hidden flex items-center bg-black/60 p-2 rounded-xl border border-red-500/30 shadow-inner ml-4 shrink-0">
+                <div class="text-[9px] text-zinc-400 font-bold uppercase mr-3 text-right leading-tight border-r border-zinc-700 pr-3">
+                    API Kotası<br><span id="header-quota-text" class="text-emerald-400 text-[11px]">0/30000</span>
+                </div>
+                <div class="flex items-center gap-2 mr-3">
+                    <span id="yt-auto-mode-status" class="bg-zinc-800 text-sky-400 border border-sky-500 px-3 py-1.5 rounded-lg text-[9px] font-black uppercase shadow-sm transition-all text-center min-w-[120px]">
+                        ⏳ STANDART (5 SN)
+                    </span>
+                </div>
+                <button id="yt-toggle-poll-btn" onclick="toggleYouTubePolling()" class="bg-red-600 hover:bg-red-500 px-4 py-1.5 rounded-lg text-[10px] font-black uppercase text-white shadow-md transition whitespace-nowrap min-w-[80px]">DURDUR</button>
+            </div>
+
+            <div id="tab-container" class="flex flex-1 bg-black/50 p-1 rounded-xl border border-amber-500/20 mx-4 overflow-x-auto custom-scrollbar items-center gap-1 px-2">
+                <button id="tab-game" onclick="switchTab('game')" draggable="true" class="tab-btn active px-4 py-2 rounded-lg text-xs font-bold uppercase transition shrink-0 text-zinc-300 cursor-grab active:cursor-grabbing">KUTU🎁 </button>
+                <button id="tab-mirror" onclick="switchTab('mirror')" draggable="true" class="tab-btn px-4 py-2 rounded-lg text-xs font-bold uppercase transition shrink-0 text-zinc-300 cursor-grab active:cursor-grabbing">AYNA🪞</button>
+                <button id="tab-wheel" onclick="switchTab('wheel')" draggable="true" class="tab-btn px-4 py-2 rounded-lg text-xs font-bold uppercase transition shrink-0 text-zinc-300 cursor-grab active:cursor-grabbing">ÇARK🛞</button>
+                <button id="tab-war" onclick="switchTab('war')" draggable="true" class="tab-btn px-4 py-2 rounded-lg text-xs font-bold uppercase transition shrink-0 text-red-500 cursor-grab active:cursor-grabbing">SAVAŞ⚔️</button>
+                <button id="tab-giveaway" onclick="switchTab('giveaway')" draggable="true" class="tab-btn px-4 py-2 rounded-lg text-xs font-bold uppercase transition shrink-0 text-amber-500 cursor-grab active:cursor-grabbing">ÇEKİLİŞ🎲</button>
+                
+                <div class="w-px h-6 bg-zinc-700 mx-1 shrink-0" draggable="false"></div>
+
+                <button id="tab-coin" onclick="switchTab('coin')" draggable="true" class="tab-btn px-4 py-2 rounded-lg text-xs font-black uppercase transition shrink-0 text-yellow-400 cursor-grab active:cursor-grabbing">YAZI TURA 🪙</button>
+                <button id="tab-chat" onclick="switchTab('chat')" draggable="true" class="tab-btn px-4 py-2 rounded-lg text-xs font-bold uppercase transition shrink-0 text-sky-400 cursor-grab active:cursor-grabbing">CANLI HAVUZ 👥</button>
+                <button id="tab-rank" onclick="switchTab('rank')" draggable="true" class="tab-btn px-4 py-2 rounded-lg text-xs font-black uppercase transition shrink-0 text-purple-400 cursor-grab active:cursor-grabbing">SIRALAMA 🏆</button>
+                <button id="tab-pool" onclick="switchTab('pool')" draggable="true" class="tab-btn px-4 py-2 rounded-lg text-xs font-bold uppercase transition shrink-0 text-amber-300 cursor-grab active:cursor-grabbing">ÖDÜL HAVUZU 🎁</button>
+                <button id="tab-winners" onclick="switchTab('winners')" draggable="true" class="tab-btn px-4 py-2 rounded-lg text-xs font-bold uppercase transition shrink-0 text-emerald-400 cursor-grab active:cursor-grabbing">KAZANANLAR 📜</button>
+                <button id="tab-config" onclick="switchTab('config')" draggable="true" class="tab-btn px-4 py-2 rounded-lg text-xs font-bold uppercase transition shrink-0 text-zinc-300 cursor-grab active:cursor-grabbing">AYARLAR⚙️</button>
+            </div>
+
+            <div class="flex items-center gap-2 shrink-0">
+                <button onclick="window.openKvkkModal()" class="text-zinc-400 hover:text-white text-[10px] font-bold px-2 py-2 transition uppercase underline decoration-zinc-600 hover:decoration-white">KVKK Metni</button>
+                <button onclick="confirmReset()" class="bg-red-900/40 hover:bg-red-600 text-red-400 hover:text-white text-[10px] font-black px-4 py-2 rounded-lg transition uppercase border border-red-500/50 shadow-md">SİSTEMİ SIFIRLA</button>
+            </div>
+        </header>
+
+        <main id="game-page" class="flex-1 flex gap-4 overflow-hidden min-h-0">
+            <section class="flex-1 w-full glass-panel rounded-2xl p-4 flex flex-col relative overflow-hidden min-h-0">
+                <div class="w-full text-center mb-4 flex flex-col items-center shrink-0 z-10 relative bg-black/50 py-3 rounded-2xl border border-zinc-800">
+                    <h2 class="text-3xl font-black text-amber-500 uppercase italic tracking-widest drop-shadow-md mb-2">GİZEMLİ KUTULAR</h2>
+                    
+                    <div class="flex items-center gap-4 mb-2">
+                        <button id="btn-select-box" onclick="selectPlayerForGame('box')" class="bg-amber-600 hover:bg-amber-500 text-white font-black py-2 px-8 rounded-xl transition shadow-[0_0_15px_rgba(217,119,6,0.5)] border border-amber-400 text-sm">CANLI HAVUZDAN OYUNCU SEÇ</button>
+                        <div id="box-timer-container" class="hidden bg-zinc-800 border border-amber-500 px-3 py-1 rounded-lg flex items-center gap-2">
+                            <i class="fa-solid fa-clock text-amber-500 animate-pulse"></i>
+                            <span id="box-timer" class="text-lg font-black text-white">45</span>
+                        </div>
+                    </div>
+
+                    <div id="active-player-box-container" class="hidden flex flex-col items-center w-full">
+                        <div class="flex items-center justify-center gap-3 w-full">
+                            <div id="active-player-box" class="text-2xl text-emerald-400 font-black cursor-pointer hover:text-white transition drop-shadow-lg" onclick="showLivePlayerNote('box')"></div>
+                            <button onclick="skipAndSelectNew('box')" class="bg-red-900/40 hover:bg-red-600 text-red-300 hover:text-white border border-red-500/30 rounded px-3 py-1 text-[10px] uppercase font-black transition shadow-md">🔁 Pas Geç</button>
+                        </div>
+                        <div id="active-msg-box" class="active-msg-bubble">💬 Bekleniyor...</div>
+                    </div>
+                </div>
+                
+                <div id="box-grid-container" class="flex-1 overflow-y-auto custom-scrollbar w-full relative">
+                    <div id="box-grid" class="grid grid-cols-5 lg:grid-cols-10 gap-4 w-full pb-32 pt-2 px-2"></div>
+                </div>
+
+                <div id="post-box-controls" class="absolute bottom-6 left-0 right-0 flex justify-center opacity-0 pointer-events-none transition-all z-20">
+                    <button onclick="nextRound()" class="bg-red-700 hover:bg-red-600 text-white px-12 py-4 rounded-full font-black uppercase text-base border border-red-400 shadow-[0_10px_20px_rgba(0,0,0,0.8)]">SONRAKİ TUR (YENİ OYUNCU)</button>
+                </div>
+            </section>
+        </main>
+
+        <main id="mirror-page" class="flex-1 hidden-page flex gap-4 overflow-hidden min-h-0">
+            <section class="flex-1 w-full glass-panel rounded-2xl p-6 flex flex-col overflow-hidden relative min-h-0">
+                <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 h-full min-h-0">
+                    <div class="lg:col-span-8 flex flex-col min-h-0">
+                        <div id="mirror-winner-display" class="mb-4 text-center flex flex-col items-center shrink-0 w-full">
+                            <h3 class="text-3xl font-black text-amber-500 uppercase italic tracking-widest drop-shadow-md mb-2">AYNA KARTLARI</h3>
+                            
+                            <!-- EKLENEN ÖDÜL SAYACI -->
+                            <div class="text-[11px] text-zinc-300 font-bold uppercase mt-1 tracking-widest bg-black/60 px-4 py-1.5 rounded-xl border border-purple-500/40 inline-flex items-center gap-2 mb-3 shadow-[0_0_10px_rgba(168,85,247,0.2)]">
+                                <i class="fa-solid fa-gift text-purple-400"></i> TOPLAM DAĞITILAN ÖDÜL: <span id="mirror-reward-counter-val" class="text-white font-black text-sm">0</span>
+                            </div>
+
+                            <div class="flex items-center gap-4 mb-2">
+                                <button id="btn-select-mirror" onclick="selectPlayerForGame('mirror')" class="bg-amber-600 hover:bg-amber-500 text-white font-black py-2 px-8 rounded-xl transition shadow-[0_0_15px_rgba(217,119,6,0.5)] border border-amber-400 text-sm">CANLI HAVUZDAN OYUNCU SEÇ</button>
+                                <div id="mirror-timer-container" class="hidden bg-zinc-800 border border-amber-500 px-3 py-1 rounded-lg flex items-center gap-2">
+                                    <i class="fa-solid fa-clock text-amber-500 animate-pulse"></i>
+                                    <span id="mirror-timer" class="text-lg font-black text-white">45</span>
+                                </div>
+                            </div>
+
+                            <div id="active-player-mirror-container" class="hidden flex flex-col items-center mb-1 w-full">
+                                <div class="flex items-center justify-center gap-3 w-full">
+                                    <div id="active-player-mirror" class="text-2xl text-emerald-400 font-black cursor-pointer hover:text-white transition drop-shadow-lg" onclick="showLivePlayerNote('mirror')"></div>
+                                    <button onclick="skipAndSelectNew('mirror')" class="bg-red-900/40 hover:bg-red-600 text-red-300 hover:text-white border border-red-500/30 rounded px-3 py-1 text-[10px] uppercase font-black transition shadow-md">🔁 Pas Geç</button>
+                                </div>
+                                <div id="active-msg-mirror" class="active-msg-bubble">💬 Bekleniyor...</div>
+                            </div>
+                            <div id="mirror-selection-count" class="text-sm text-yellow-500 font-bold bg-black/50 px-4 py-1 rounded border border-yellow-500/30 mt-1">HAK: 3 / 3</div>
+                        </div>
+                        <div class="flex-1 overflow-y-auto flex items-center justify-center min-h-0 custom-scrollbar pb-2">
+                            <div id="mirror-grid" class="grid grid-cols-5 gap-6 max-w-4xl w-full mx-auto p-4"></div>
+                        </div>
+                        <div id="mirror-total-score-panel" class="pt-2 text-center opacity-0 transition-all shrink-0">
+                            <div class="text-sm text-zinc-400 uppercase font-bold mb-0">TOPLAM PUAN</div>
+                            <div id="mirror-total-score" class="text-5xl font-black text-white italic drop-shadow-[0_0_10px_rgba(255,255,255,0.5)] leading-none">0</div>
+                        </div>
+                    </div>
+                    <div class="lg:col-span-4 flex flex-col h-full bg-black/40 rounded-2xl p-4 border border-zinc-700 shadow-inner overflow-hidden">
+                        <h3 class="text-amber-500 text-sm font-black tracking-widest uppercase mb-3 text-center italic border-b border-zinc-700 pb-2 shrink-0">PUAN ÖDÜLLERİ</h3>
+                        <div id="reward-pyramid" class="space-y-1.5 flex-1 overflow-y-auto pr-2 custom-scrollbar"></div>
+                        <div id="mirror-result-announcement" class="mt-3 text-center opacity-0 transition-all transform translate-y-4 shrink-0 bg-black/50 p-3 rounded-xl border border-emerald-500/30">
+                            <div class="text-[10px] text-zinc-400 uppercase font-bold mb-1">KAZANILAN ÖDÜL</div>
+                            <div id="mirror-reward-text" class="text-xl font-black text-emerald-400 uppercase italic leading-tight flex flex-col items-center">...</div>
+                            <button onclick="resetMirrorRound()" class="mt-4 bg-red-700 hover:bg-red-600 border border-red-500 text-white px-6 py-2 rounded-full text-xs font-black uppercase shadow-lg w-full">YENİ OYUNCU</button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <main id="wheel-page" class="flex-1 hidden-page flex gap-4 overflow-hidden min-h-0">
+            <section class="flex-1 w-full glass-panel rounded-2xl p-6 flex flex-col items-center justify-center relative overflow-hidden min-h-0">
+                <div id="wheel-winner-banner" class="mb-4 text-center transition-all flex flex-col items-center shrink-0 w-full z-10 relative">
+                    <h2 class="text-3xl font-black text-amber-500 uppercase italic tracking-widest drop-shadow-md mb-3">ŞANS ÇARKI</h2>
+                    
+                    <div class="flex items-center justify-center gap-4 mb-2 flex-wrap">
+                        <button id="btn-select-wheel" onclick="selectPlayerForGame('wheel')" class="bg-amber-600 hover:bg-amber-500 text-white font-black py-2 px-8 rounded-xl transition shadow-[0_0_15px_rgba(217,119,6,0.5)] border border-amber-400 text-sm">CANLI HAVUZDAN OYUNCU SEÇ</button>
+                        <button id="btn-toggle-player-wheel" onclick="togglePlayerWheel()" class="bg-purple-700 hover:bg-purple-600 text-white font-black py-2 px-6 rounded-xl transition shadow-[0_0_15px_rgba(126,34,206,0.5)] border border-purple-400 text-sm">🎰 OYUNCU ÇARKINI AÇ/KAPAT</button>
+                        
+                        <div id="wheel-timer-container" class="hidden bg-zinc-800 border border-amber-500 px-3 py-1 rounded-lg flex items-center gap-2">
+                            <i class="fa-solid fa-clock text-amber-500 animate-pulse"></i>
+                            <span id="wheel-timer" class="text-lg font-black text-white">45</span>
+                        </div>
+                    </div>
+
+                    <div id="active-player-wheel-container" class="hidden flex flex-col items-center mb-1 w-full">
+                        <div class="flex items-center justify-center gap-3 w-full">
+                            <div id="active-player-wheel" class="text-3xl text-emerald-400 font-black cursor-pointer hover:text-white transition drop-shadow-lg" onclick="showLivePlayerNote('wheel')"></div>
+                            <button onclick="skipAndSelectNew('wheel')" class="bg-red-900/40 hover:bg-red-600 text-red-300 hover:text-white border border-red-500/30 rounded px-3 py-1 text-[10px] uppercase font-black transition shadow-md">🔁 Pas Geç</button>
+                        </div>
+                        <div id="active-msg-wheel" class="active-msg-bubble">💬 Bekleniyor...</div>
+                    </div>
+                    <!-- FIXED OVERLAY INTERCEPTION BUG: Added pointer-events-none and hidden here by default -->
+                    <div id="wheel-winner-reward" class="w-full flex justify-center mt-2 opacity-0 transform translate-y-2 transition-all absolute z-30 pointer-events-none hidden"></div>
+                </div>
+                
+                <div id="wheels-wrapper" class="flex flex-row justify-center items-center gap-10 w-full mt-4 flex-1">
+                    
+                    <div id="player-wheel-container" class="hidden flex-col items-center transition-all bg-black/40 p-4 rounded-3xl border border-purple-500/30 shadow-inner">
+                        <h3 class="text-lg font-black text-purple-400 mb-2 uppercase tracking-widest drop-shadow-md">KİM KAZANACAK? (OYUNCU ÇARKI)</h3>
+                        <div class="wheel-container">
+                            <div class="wheel-pointer"></div>
+                            <div class="wheel-3d-wrapper"><canvas id="player-wheel-canvas" width="400" height="400" class="wheel-canvas border-purple-900 shadow-[0_0_20px_rgba(126,34,206,0.3)]"></canvas></div>
+                        </div>
+                        <button id="spin-player-btn" onclick="spinPlayerWheel()" class="mt-6 bg-purple-700 hover:bg-purple-600 border border-purple-500 px-10 py-3 rounded-xl text-white font-black uppercase shadow-[0_0_20px_rgba(126,34,206,0.5)] hover:scale-105 transition active:scale-95 text-base">OYUNCU SEÇ İÇİN DÖNDÜR</button>
+                    </div>
+
+                    <div id="reward-wheel-container" class="flex flex-col items-center transition-all">
+                        <h3 class="text-lg font-black text-amber-500 mb-2 uppercase tracking-widest drop-shadow-md">NE KAZANACAK? (ÖDÜL ÇARKINI DÖNDÜR)</h3>
+                        <div class="wheel-container">
+                            <div class="wheel-pointer"></div>
+                            <div class="wheel-3d-wrapper"><canvas id="wheel-canvas" width="450" height="450" class="wheel-canvas"></canvas></div>
+                        </div>
+                        <button id="spin-btn" onclick="spinWheel()" class="mt-6 bg-red-700 hover:bg-red-600 border border-red-500 px-12 py-4 rounded-xl text-white font-black uppercase shadow-[0_0_30px_rgba(220,38,38,0.5)] hover:scale-105 transition active:scale-95 text-lg">ÖDÜL ÇARKINI DÖNDÜR</button>
+                    </div>
+                    
+                </div>
+            </section>
+        </main>
+
+        <main id="coin-page" class="flex-1 hidden-page flex gap-4 overflow-hidden min-h-0">
+            <section class="flex-1 w-full glass-panel rounded-2xl p-6 flex flex-col relative overflow-hidden bg-gradient-to-b from-black/80 to-transparent min-h-0">
+                <div class="w-full text-center mb-4 shrink-0 relative z-10">
+                    <h2 class="text-3xl font-black text-yellow-400 uppercase italic tracking-widest drop-shadow-[0_0_15px_rgba(250,204,21,0.5)]">YAZI TURA (HAYATTA KALMA)</h2>
+                    <p class="text-zinc-400 text-xs font-bold uppercase mt-1">Havuzdaki herkes katılır. Doğru bilenler bir sonraki tura geçer, yanlış bilenler <span class="text-red-400">elenir</span>.</p>
+                </div>
+
+                <div class="flex gap-4 h-full min-h-0">
+                    <div class="flex flex-col w-1/4 min-w-[250px] gap-4">
+                        <div class="bg-black/60 p-4 rounded-xl border border-zinc-700 shadow-inner shrink-0">
+                            <label class="text-[10px] uppercase text-emerald-400 font-bold mb-1 block">Hedef Kazanan Sayısı (Kalanlar)</label>
+                            <input type="number" id="coin-target-count" value="5" min="1" class="w-full bg-zinc-900 border border-zinc-600 rounded-lg py-2 text-center text-white font-black mb-3 outline-none">
+                            <label class="text-[10px] uppercase text-amber-400 font-bold mb-1 block">Kazanılacak Ödül</label>
+                            <input type="text" id="coin-reward" placeholder="Örn: 500 Altın" class="w-full bg-zinc-900 border border-zinc-600 rounded-lg py-2 px-3 text-white font-bold mb-4 outline-none text-sm text-center">
+                            <button onclick="window.startCoinGame()" id="coin-start-btn" class="w-full bg-yellow-600 hover:bg-yellow-500 text-white font-black py-3 rounded-lg uppercase shadow-[0_0_15px_rgba(202,138,4,0.6)] transition">SİSTEMİ BAŞLAT</button>
+                            <button onclick="window.resetCoinGame()" id="coin-reset-btn" class="w-full bg-red-700 hover:bg-red-600 text-white font-black py-3 rounded-lg uppercase shadow-md transition hidden">İPTAL ET / SIFIRLA</button>
+                        </div>
+                        <div class="flex-1 bg-black/60 p-4 rounded-xl border border-emerald-500/30 shadow-inner flex flex-col min-h-0">
+                            <div class="text-[10px] text-emerald-400 font-black uppercase tracking-widest border-b border-emerald-500/30 pb-1 mb-2">ÖDÜLÜ KAZANANLAR (<span id="coin-saved-count">0</span>)</div>
+                            <div id="coin-saved-list" class="flex-1 overflow-y-auto custom-scrollbar text-sm space-y-1"></div>
+                        </div>
+                    </div>
+
+                    <div class="flex-[2] bg-black/40 rounded-xl border border-zinc-700 flex flex-col items-center justify-center p-6 relative">
+                        <div id="coin-round-display" class="absolute top-4 left-4 bg-zinc-800 border border-zinc-600 px-3 py-1 rounded text-xs font-black text-amber-400 hidden shadow-md">TUR: <span id="coin-round-text" class="text-white text-base">1</span></div>
+                        <div class="coin-container my-8">
+                            <div id="coin-element" class="coin">
+                                <div class="coin-face coin-front">YAZI</div>
+                                <div class="coin-face coin-back">TURA</div>
+                            </div>
+                        </div>
+                        <div id="coin-bet-stats" class="w-full max-w-md bg-black/80 rounded-xl border border-zinc-600 p-4 flex justify-between text-center hidden shadow-lg">
+                            <div class="flex-1 border-r border-zinc-700">
+                                <div class="text-[10px] text-amber-400 uppercase font-bold tracking-widest mb-1">YAZI DİYEN</div>
+                                <div id="coin-yazi-count" class="text-3xl font-black text-white drop-shadow-md">0</div>
+                            </div>
+                            <div class="flex-1 border-r border-zinc-700">
+                                <div class="text-[10px] text-sky-400 uppercase font-bold tracking-widest mb-1">TURA DİYEN</div>
+                                <div id="coin-tura-count" class="text-3xl font-black text-white drop-shadow-md">0</div>
+                            </div>
+                            <div class="flex-1">
+                                <div class="text-[10px] text-zinc-500 uppercase font-bold tracking-widest mb-1">SEÇMEYEN</div>
+                                <div id="coin-none-count" class="text-3xl font-black text-zinc-400">0</div>
+                            </div>
+                        </div>
+                        <div id="coin-action-container" class="mt-8 hidden">
+                            <button onclick="window.flipCoin()" id="coin-flip-btn" class="bg-indigo-600 hover:bg-indigo-500 text-white font-black py-4 px-12 rounded-xl uppercase shadow-[0_0_20px_rgba(79,70,229,0.5)] transition text-lg">SONUÇLANDIR (PARAYI AT)</button>
+                        </div>
+                        <div id="coin-status-msg" class="mt-4 text-sm text-zinc-400 font-bold uppercase tracking-widest text-center animate-pulse"></div>
+                    </div>
+
+                    <div class="flex flex-col w-1/4 min-w-[250px] bg-black/60 p-4 rounded-xl border border-zinc-700 shadow-inner">
+                        <div class="text-[10px] text-zinc-300 font-black uppercase tracking-widest border-b border-zinc-600 pb-1 mb-2">DEVAM EDEN OYUNCULAR (<span id="coin-pool-count">0</span>)</div>
+                        <div class="text-[9px] text-zinc-500 mb-3 italic leading-tight">Sohbete !yazı veya !tura yazmaları bekleniyor. Kaybedenler anında elenecek.</div>
+                        <div id="coin-pool-list" class="flex-1 overflow-y-auto custom-scrollbar text-sm space-y-1"></div>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <main id="chat-page" class="flex-1 hidden-page flex gap-4 overflow-hidden min-h-0">
+            <section class="flex-1 w-full glass-panel rounded-2xl p-4 flex flex-col relative overflow-hidden min-h-0">
+                <div class="flex justify-between items-center mb-4 border-b border-zinc-700 pb-2 shrink-0">
+                    <div>
+                        <h2 class="text-xl font-black text-emerald-400 uppercase tracking-widest drop-shadow-md flex items-center gap-2">
+                            <i class="fa-solid fa-users"></i> CANLI HAVUZ
+                        </h2>
+                        <p class="text-[10px] text-zinc-400 font-bold uppercase mt-1">Geçerli kelime ile sohbete katılan tüm oyuncular.</p>
+                    </div>
+                    <div class="bg-emerald-900/30 border border-emerald-500/50 px-6 py-2 rounded-xl text-center shadow-lg">
+                        <div class="text-[10px] text-emerald-300 font-bold uppercase mb-1">Havuz İstatistiği</div>
+                        <div class="flex gap-4">
+                            <div class="flex flex-col items-center">
+                                <span class="text-[10px] text-zinc-400 font-bold uppercase">Katılan</span>
+                                <span id="yt-total-count" class="text-3xl font-black text-white drop-shadow-md">0</span>
+                            </div>
+                            <div class="w-px bg-emerald-500/30"></div>
+                            <div class="flex flex-col items-center">
+                                <span class="text-[10px] text-zinc-400 font-bold uppercase">Çekilen</span>
+                                <span id="yt-drawn-count" class="text-3xl font-black text-amber-400 drop-shadow-md">0</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <input type="text" id="live-pool-search" onkeyup="filterLiveParticipants()" placeholder="Kanal Adına Göre Ara..." class="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-3 text-white text-sm outline-none focus:border-emerald-500 mb-3 shadow-inner shrink-0">
+                <div class="flex-1 overflow-y-auto custom-scrollbar p-2 bg-black/40 rounded-xl border border-zinc-800 shadow-inner">
+                    <div id="yt-participant-list" class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
+                        <div class="col-span-full text-center text-zinc-500 italic text-sm mt-10">Henüz bağlantı kurulmadı veya katılımcı yok.</div>
+                    </div>
+                </div>
+                <div class="mt-3 pt-3 border-t border-zinc-700 flex justify-between shrink-0">
+                    <button id="toggle-pool-btn" onclick="togglePool()" class="text-xs text-emerald-400 hover:text-white font-bold uppercase border border-emerald-500/30 px-4 py-2 rounded bg-emerald-900/20 transition hover:bg-emerald-600 shadow-md">Havuz Katılımı: AÇIK</button>
+                    <button onclick="clearParticipants()" class="text-xs text-red-400 hover:text-red-300 font-bold uppercase border border-red-500/30 px-4 py-2 rounded bg-red-900/20 transition hover:bg-red-900/40">Havuzu Temizle</button>
+                </div>
+            </section>
+        </main>
+
+        <main id="rank-page" class="flex-1 hidden-page flex gap-4 overflow-hidden min-h-0">
+            <section class="flex-1 w-full glass-panel rounded-2xl p-6 flex flex-col relative overflow-hidden bg-gradient-to-b from-black/80 to-transparent min-h-0">
+                <div class="w-full text-center mb-4 shrink-0">
+                    <h2 class="text-3xl font-black text-purple-400 uppercase italic tracking-widest drop-shadow-[0_0_15px_rgba(168,85,247,0.5)]">SOHBET AKTİFLİK SIRALAMASI</h2>
+                    <p class="text-zinc-400 text-xs font-bold uppercase mt-1">Yayında aktif olarak sohbet eden oyuncuların mesaj sayısına göre sıralaması. (Kalıcı olarak kaydedilir)</p>
+                </div>
+                <div class="flex-1 bg-black/40 rounded-xl border border-zinc-700 p-4 overflow-y-auto custom-scrollbar">
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" id="rank-list-container">
+                        <div class="col-span-full text-center text-zinc-500 italic text-sm mt-10">Sohbet bağlantısı bekleniyor...</div>
+                    </div>
+                </div>
+                <div class="mt-4 shrink-0 text-center">
+                    <button onclick="resetRanks()" class="bg-red-900/40 border border-red-500/50 px-6 py-2 rounded-lg text-xs font-bold text-red-400 uppercase hover:bg-red-600 hover:text-white transition">Puanları Sıfırla</button>
+                </div>
+            </section>
+        </main>
+
+        <main id="war-page" class="flex-1 hidden-page flex gap-4 overflow-hidden min-h-0">
+            <section class="flex-1 w-full glass-panel rounded-2xl p-4 flex flex-col items-center relative overflow-hidden bg-gradient-to-b from-black/80 to-transparent min-h-0">
+                <div class="w-full text-center mb-2 shrink-0"><h2 class="text-3xl font-black text-red-500 uppercase italic tracking-widest drop-shadow-[0_0_10px_rgba(239,68,68,0.8)]">IRK SAVAŞI ÇEKİLİŞİ</h2></div>
+                <div class="w-full flex justify-center items-center gap-10 mb-4 shrink-0 bg-black/60 p-4 rounded-2xl border border-zinc-700 shadow-inner">
+                    <div class="w-36 h-36 rounded-xl overflow-hidden border-2 border-blue-500/50 shadow-[0_0_20px_rgba(59,130,246,0.4)] relative group">
+                        <img src="https://dwar.gen.tr/images/data/npcs/igrok_hum.jpg" class="w-full h-full object-cover">
+                        <div class="absolute bottom-0 left-0 w-full bg-blue-900/90 text-[10px] py-1 text-center font-bold text-white uppercase tracking-widest">İNSANLAR</div>
+                    </div>
+                    <div class="text-4xl font-black text-zinc-600 italic drop-shadow-md">VS</div>
+                    <div class="w-36 h-36 rounded-xl overflow-hidden border-2 border-red-500/50 shadow-[0_0_20px_rgba(239,68,68,0.4)] relative group">
+                         <img src="https://dwar.gen.tr/images/data/npcs/igrok_mag.jpg" class="w-full h-full object-cover">
+                         <div class="absolute bottom-0 left-0 w-full bg-red-900/90 text-[10px] py-1 text-center font-bold text-white uppercase tracking-widest">MAGRONLAR</div>
+                    </div>
+                </div>
+                <div class="flex-1 w-full grid grid-cols-2 gap-8 overflow-hidden min-h-0">
+                    <div class="flex flex-col h-full bg-blue-950/20 border border-blue-500/30 rounded-xl p-5 shadow-lg min-h-0">
+                        <div class="flex items-center gap-3 mb-4 bg-black/40 p-3 rounded-lg border border-blue-900 shrink-0">
+                            <input type="number" id="war-hum-count" value="1" min="1" class="w-20 bg-zinc-900 border-2 border-blue-500/50 rounded-lg py-2 text-center text-white text-base font-bold outline-none focus:border-blue-400">
+                            <label class="text-xs text-blue-300 font-bold uppercase tracking-widest">Kaç İnsan Seçilecek?</label>
+                        </div>
+                        <button onclick="drawWarWinners('human')" class="w-full bg-blue-700 hover:bg-blue-600 border border-blue-400 text-white font-black py-4 rounded-xl transition uppercase text-sm shadow-[0_0_20px_rgba(37,99,235,0.4)] mb-3 shrink-0">SADECE "İNSAN" YAZANLARDAN ÇEK</button>
+                        <div class="flex-1 overflow-y-auto custom-scrollbar bg-black/50 rounded-lg p-3 border border-blue-900 shadow-inner">
+                            <div id="war-hum-results" class="space-y-3 text-base"></div>
+                        </div>
+                    </div>
+                    <div class="flex flex-col h-full bg-red-950/20 border border-red-500/30 rounded-xl p-5 shadow-lg min-h-0">
+                        <div class="flex items-center gap-3 mb-4 bg-black/40 p-3 rounded-lg border border-red-900 shrink-0">
+                            <input type="number" id="war-mag-count" value="1" min="1" class="w-20 bg-zinc-900 border-2 border-red-500/50 rounded-lg py-2 text-center text-white text-base font-bold outline-none focus:border-red-400">
+                            <label class="text-xs text-red-300 font-bold uppercase tracking-widest">Kaç Magron Seçilecek?</label>
+                        </div>
+                        <button onclick="drawWarWinners('magron')" class="w-full bg-red-700 hover:bg-red-600 border border-red-400 text-white font-black py-4 rounded-xl transition uppercase text-sm shadow-[0_0_20px_rgba(220,38,38,0.4)] mb-3 shrink-0">SADECE "MAGRON" YAZANLARDAN ÇEK</button>
+                        <div class="flex-1 overflow-y-auto custom-scrollbar bg-black/50 rounded-lg p-3 border border-red-900 shadow-inner">
+                            <div id="war-mag-results" class="space-y-3 text-base"></div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <main id="giveaway-page" class="flex-1 hidden-page flex gap-4 overflow-hidden min-h-0">
+            <section class="flex-1 w-full glass-panel rounded-2xl p-6 flex flex-col items-center relative overflow-hidden bg-gradient-to-b from-black/80 to-transparent min-h-0">
+                <div class="w-full text-center mb-2 shrink-0">
+                    <h2 class="text-3xl font-black text-amber-500 uppercase italic tracking-widest drop-shadow-[0_0_15px_rgba(245,158,11,0.5)]">KLASİK TOPLU ÇEKİLİŞ</h2>
+                </div>
+
+                <!-- OneDrive Desktop Path Explorer Bar Helper inside Classic Giveaway -->
+                <div class="w-full max-w-5xl bg-zinc-950/60 border border-amber-500/20 rounded-xl p-3 mb-3 flex flex-col md:flex-row items-center justify-between gap-3 shadow-inner shrink-0">
+                    <div class="flex items-center gap-3 overflow-hidden w-full md:w-auto">
+                        <span class="bg-amber-500/15 p-2 rounded-lg text-amber-400 shrink-0"><i class="fa-solid fa-folder-open text-base"></i></span>
+                        <div class="overflow-hidden">
+                            <div class="text-[9px] text-amber-500 font-bold uppercase tracking-widest leading-none mb-1">Yerel Ödül Klasörü</div>
+                            <div class="text-xs font-mono text-zinc-400 bg-black/60 px-2 py-0.5 rounded border border-zinc-800 truncate" title="Dosya yolu gizlenmiştir">
+                                ...\Masaüstü\oyun ödülleri
+                            </div>
+                        </div>
+                    </div>
+                    <div class="text-right text-[10px] text-zinc-400 font-medium italic">
+                        Bu klasördeki ödül resmini doğrudan eklemek için sağdaki dosya butonunu kullanabilirsiniz.
+                    </div>
+                </div>
+
+                <!-- IMPROVED CLASSIC GIVEAWAY PANEL -->
+                <div class="bg-black/60 border border-amber-500/30 rounded-2xl p-5 shadow-2xl w-full max-w-5xl shrink-0 flex flex-col lg:flex-row items-end gap-4 mb-4">
+                    <!-- Winner Count -->
+                    <div class="w-full lg:w-32">
+                        <label class="text-[10px] uppercase text-emerald-400 font-bold mb-1.5 block tracking-wider">Kazanan Sayısı</label>
+                        <input type="number" id="giveaway-count" value="1" min="1" class="w-full bg-zinc-900 border border-emerald-500/50 rounded-lg py-2 text-center text-white text-lg font-black outline-none focus:border-emerald-400 shadow-inner transition">
+                    </div>
+                    
+                    <!-- Reward Qty -->
+                    <div class="w-full lg:w-32">
+                        <label class="text-[10px] uppercase text-purple-400 font-bold mb-1.5 block tracking-wider">Ödül Adedi</label>
+                        <input type="number" id="giveaway-reward-qty" value="1" min="1" class="w-full bg-zinc-900 border border-purple-500/50 rounded-lg py-2 text-center text-white text-lg font-black outline-none focus:border-purple-400 shadow-inner transition">
+                    </div>
+
+                    <!-- Pool Selector -->
+                    <div class="flex-1 w-full">
+                        <label class="text-[10px] uppercase text-amber-400 font-bold mb-1.5 block tracking-wider">Ödül Havuzundan Seç</label>
+                        <select id="giveaway-pool-select" onchange="window.selectGiveawayPoolReward(this)" class="w-full bg-zinc-900 border border-amber-500/30 rounded-lg py-2.5 px-3 text-white text-sm font-bold outline-none focus:border-amber-400 shadow-inner transition">
+                            <option value="">-- Havuz Dışı / Manuel Yaz --</option>
+                        </select>
+                    </div>
+
+                    <!-- Custom Name Input -->
+                    <div class="flex-[1.5] w-full">
+                        <label class="text-[10px] uppercase text-zinc-400 font-bold mb-1.5 block tracking-wider">Özel Ödül Adı</label>
+                        <input type="text" id="giveaway-reward" placeholder="Örn: Efsanevi Sandık" class="w-full bg-zinc-900 border border-zinc-700 rounded-lg py-2 px-4 text-white text-sm font-bold outline-none focus:border-amber-400 shadow-inner transition">
+                    </div>
+
+                    <!-- Instant Upload -->
+                    <div class="w-full lg:w-48 flex flex-col justify-center">
+                        <label class="text-[10px] uppercase text-sky-400 font-bold mb-1.5 block tracking-wider">Hızlı Resim Ekle (Opsiyonel)</label>
+                        <input type="file" id="giveaway-reward-file" accept="image/*" onchange="window.handleGiveawayFileSelect(this)" class="w-full text-xs text-zinc-400 file:mr-2 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-[10px] file:font-bold file:bg-zinc-700 file:text-white hover:file:bg-zinc-600 cursor-pointer transition">
+                    </div>
+
+                    <button onclick="window.startGiveaway()" class="w-full lg:w-auto bg-gradient-to-r from-amber-600 to-amber-800 hover:from-amber-500 hover:to-amber-700 border border-amber-400 text-white font-black py-2.5 px-8 rounded-lg transition uppercase text-sm shadow-[0_0_20px_rgba(217,119,6,0.5)] flex items-center justify-center gap-2 h-[42px] tracking-wider shrink-0">
+                        <i class="fa-solid fa-dice"></i> ÇEKİLİŞİ BAŞLAT
+                    </button>
+                </div>
+
+                <div class="w-full max-w-6xl mt-2 flex-1 overflow-hidden flex flex-col">
+                    <h3 class="text-emerald-400 font-black tracking-widest border-b border-emerald-500/30 pb-2 mb-4 shrink-0 text-center">KAZANANLAR</h3>
+                    <div id="giveaway-results" class="flex-1 overflow-y-auto custom-scrollbar pb-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 items-start content-start">
+                        <div class="col-span-full text-center text-zinc-500 italic text-sm mt-10" id="giveaway-placeholder">Çekiliş sonuçları burada görünecektir.</div>
+                    </div>
+                </div>
+            </section>
+        </main>
+        
+        <main id="pool-page" class="flex-1 hidden-page glass-panel rounded-2xl p-6 overflow-y-auto custom-scrollbar min-h-0">
+             <div class="p-6 bg-black/60 rounded-2xl border border-amber-500/30 shadow-2xl">
+                <div class="flex justify-between items-end mb-4 border-b border-zinc-700 pb-3">
+                    <h3 class="text-2xl font-black text-amber-500 uppercase tracking-widest italic flex items-center gap-2 drop-shadow-md">ÖDÜL HAVUZU YÖNETİMİ</h3>
+                    <input type="text" id="pool-search" onkeyup="window.filterPool()" placeholder="Havuzda Ara..." class="bg-zinc-900 border border-zinc-700 rounded-lg px-4 py-2 text-white text-sm outline-none focus:border-amber-500 w-64 shadow-inner">
+                </div>
+
+                <!-- OneDrive Desktop Path Explorer Bar Helper inside Reward Pool -->
+                <div class="w-full bg-zinc-950/60 border border-amber-500/20 rounded-xl p-4 mb-4 flex flex-col md:flex-row items-center justify-between gap-4 shadow-inner shrink-0">
+                    <div class="flex items-center gap-3 overflow-hidden w-full md:w-auto">
+                        <span class="bg-amber-500/15 p-3 rounded-xl text-amber-400 shrink-0"><i class="fa-solid fa-folder-open text-xl"></i></span>
+                        <div class="overflow-hidden">
+                            <div class="text-[10px] text-amber-500 font-black uppercase tracking-widest leading-none mb-1">Aktif Ödül Klasörü</div>
+                            <div class="text-sm font-mono text-zinc-400 bg-black/60 px-3 py-1.5 rounded border border-zinc-800 truncate" title="Dosya yolu gizlenmiştir">
+                                ...\Masaüstü\oyun ödülleri
+                            </div>
+                        </div>
+                    </div>
+                    <div class="text-left md:text-right text-xs text-zinc-400 font-medium italic">
+                        Masaüstünüzdeki "oyun ödülleri" klasöründen resimleri seçtiğinizde resimlerin adları otomatik eşleşecektir.
+                    </div>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6 bg-zinc-900/50 p-4 rounded-xl border border-zinc-800">
+                    <div class="md:col-span-2">
+                        <input id="pool-reward-name" type="text" placeholder="Ödül Adı (Örn: 100 Joker Kartı)" class="w-full bg-black border border-zinc-700 rounded-xl p-3 text-white outline-none focus:border-amber-500 transition text-sm">
+                    </div>
+                    <div class="md:col-span-1 flex flex-col justify-center relative group">
+                        <input id="pool-reward-file" type="file" accept="image/*" onchange="window.autoFillRewardName(this)" class="w-full text-xs text-zinc-400 file:mr-2 file:py-2 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-zinc-700 file:text-white hover:file:bg-zinc-600 cursor-pointer transition">
+                    </div>
+                    <div class="md:col-span-1">
+                        <button onclick="window.addRewardToPool()" class="w-full h-full bg-amber-600 hover:bg-amber-500 border border-amber-400 text-white font-bold rounded-xl transition uppercase text-sm shadow-lg">HAVUZA EKLE +</button>
+                    </div>
+                    <div class="md:col-span-4 text-[11px] text-zinc-500 italic mt-[-8px] text-center">
+                        <i class="fa-solid fa-info-circle text-amber-500"></i> Dosya seçtiğinizde, resim dosyası sisteme entegre olur ve resmin adı otomatik doldurulur.
+                    </div>
+                </div>
+
+                <div id="pool-list-display" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 overflow-y-auto custom-scrollbar p-2 max-h-[50vh]"></div>
+            </div>
+        </main>
+
+        <main id="winners-page" class="flex-1 hidden-page glass-panel rounded-2xl p-6 flex flex-col overflow-hidden min-h-0">
+            <div class="flex justify-between items-center mb-6 border-b border-zinc-700 pb-4 shrink-0">
+                <div>
+                    <h2 class="text-3xl font-black text-emerald-400 uppercase tracking-wider drop-shadow-md">KAZANANLAR LİSTESİ</h2>
+                    <p class="text-zinc-400 text-xs uppercase font-bold mt-1">Ödül türlerine göre gruplandırılmıştır. İsme tıklayarak mesajlarını görebilirsiniz.</p>
+                </div>
+                <div class="flex items-center gap-3">
+                    <button onclick="window.exportWinners()" class="bg-zinc-800 hover:bg-zinc-700 border border-zinc-600 text-white font-bold py-3 px-6 rounded-xl text-xs uppercase flex items-center gap-2 shadow-lg transition">DIŞA AKTAR (.TXT)</button>
+                </div>
+            </div>
+            <div id="winners-archive-container" class="flex-1 overflow-y-auto custom-scrollbar pr-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 items-start content-start min-h-0">
+            </div>
+        </main>
+
+        <main id="config-page" class="flex-1 hidden-page glass-panel rounded-2xl p-6 overflow-y-auto custom-scrollbar min-h-0">
+            <div class="flex justify-between items-center mb-6 border-b border-zinc-700 pb-4 bg-black/40 p-4 rounded-xl shadow-inner shrink-0">
+                <h2 class="text-3xl font-black text-amber-500 uppercase tracking-widest drop-shadow-md">SİSTEM & YAYIN AYARLARI</h2>
+                <button onclick="window.updateSettingsAndSync()" class="bg-red-700 hover:bg-red-600 border border-red-500 py-3 px-10 rounded-xl font-black transition uppercase text-sm shadow-[0_0_15px_rgba(220,38,38,0.5)] text-white">TÜM AYARLARI KAYDET</button>
+            </div>
+            
+            <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+                <div class="lg:col-span-1 space-y-6">
+                    <div class="bg-black/60 p-6 rounded-2xl border border-red-500/30 shadow-xl">
+                        <h3 class="text-xl font-black text-white uppercase tracking-widest mb-4 flex items-center gap-2 border-b border-red-500/20 pb-2">
+                            <i class="fa-brands fa-youtube text-red-500"></i> YOUTUBE BAĞLANTISI
+                        </h3>
+                        <div class="space-y-4">
+                            <div>
+                                <label class="text-[10px] uppercase text-zinc-400 font-bold mb-1 block">Canlı Yayın Linki veya Video ID</label>
+                                <input type="text" id="yt-video-url" placeholder="https://youtube.com/watch?v=..." class="w-full bg-zinc-900 border border-zinc-700 rounded-xl p-3 text-white outline-none focus:border-red-500 text-sm shadow-inner">
+                            </div>
+                            <div>
+                                <label class="text-[10px] uppercase text-zinc-400 font-bold mb-1 block">Genel Katılım Kelimesi</label>
+                                <input type="text" id="yt-keyword" value="!katıl" class="w-full bg-zinc-900 border border-zinc-700 rounded-xl p-3 text-white outline-none focus:border-red-500 font-bold text-center uppercase tracking-widest shadow-inner text-base">
+                            </div>
+                            
+                            <button id="yt-connect-btn" onclick="connectYouTube()" class="w-full bg-red-600 hover:bg-red-500 border border-red-400 text-white font-black py-4 rounded-xl transition uppercase shadow-lg mt-4 flex justify-center gap-2 items-center text-sm">
+                                SOHBETE BAĞLAN <i class="fa-solid fa-satellite-dish"></i>
+                            </button>
+                            <button id="yt-disconnect-btn" onclick="disconnectYouTube()" class="hidden w-full bg-zinc-700 hover:bg-zinc-600 text-white font-black py-4 rounded-xl transition uppercase shadow-lg mt-4 flex justify-center gap-2 items-center border border-zinc-500 text-sm">
+                                BAĞLANTIYI KES <i class="fa-solid fa-power-off"></i>
+                            </button>
+                            <div id="yt-status" class="mt-3 text-center text-xs font-bold uppercase tracking-widest text-zinc-500">Durum: Bekleniyor...</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="lg:col-span-3 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <div class="bg-black/40 p-5 rounded-2xl border border-zinc-800 shadow-inner">
+                        <label class="text-xs uppercase text-amber-500 font-bold mb-2 block">Kutu Sayısı</label>
+                        <input type="number" id="box-count-input" value="50" class="w-full bg-zinc-900 border border-zinc-700 rounded-xl p-3 text-white outline-none focus:border-amber-500 font-bold text-base text-center mb-2">
+                        
+                        <label class="text-xs uppercase text-amber-400 font-bold mb-2 block">Oyun Bekleme Süresi (Kutu, Ayna, Çark)</label>
+                        <input type="number" id="game-duration-input" value="45" class="w-full bg-zinc-900 border border-zinc-700 rounded-xl p-3 text-white outline-none focus:border-amber-500 font-bold text-base text-center mb-2">
+
+                        <label class="text-xs uppercase text-purple-400 font-bold mb-2 block">Sıralama Puanı Bekleme Süresi (Sn)</label>
+                        <input type="number" id="rank-cooldown-input" value="5" class="w-full bg-zinc-900 border border-zinc-700 rounded-xl p-3 text-white outline-none focus:border-purple-500 font-bold text-base text-center mb-4">
+
+                        <label class="text-xs uppercase text-sky-400 font-bold mb-2 block">Kutu Ödülleri (Her satıra bir tane)</label>
+                        <textarea id="reward-input" class="w-full h-24 bg-zinc-900 border border-zinc-700 rounded-xl p-3 text-sm outline-none resize-none font-mono text-white focus:border-sky-400" placeholder="Örn: 100 Altın"></textarea>
+                    </div>
+
+                    <div class="bg-black/40 p-5 rounded-2xl border border-zinc-800 shadow-inner">
+                        <label class="text-xs uppercase text-emerald-400 font-bold mb-2 block">Çark Ödülleri</label>
+                        <textarea id="wheel-reward-input" class="w-full h-32 bg-zinc-900 border border-zinc-700 rounded-xl p-3 text-sm outline-none resize-none font-mono text-white focus:border-emerald-400 mb-4" placeholder="Örn: 1000 Altın"></textarea>
+                        
+                        <label class="text-xs uppercase text-red-400 font-bold mb-2 block">Savaş Ödülleri (Ödül:Olasılık)</label>
+                        <textarea id="war-reward-input" class="w-full h-32 bg-zinc-900 border border-zinc-700 rounded-xl p-3 text-sm outline-none resize-none font-mono text-white focus:border-red-400" placeholder="Örn:&#10;1000 Altın:50&#10;Kılıç:1"></textarea>
+                    </div>
+
+                    <div class="bg-black/40 p-5 rounded-2xl border border-zinc-800 shadow-inner">
+                        <label class="text-xs uppercase text-purple-400 font-bold mb-2 block">Ayna Puan Ödülleri (Puan:Ödül)</label>
+                        <textarea id="mirror-reward-input" class="w-full h-40 bg-zinc-900 border border-zinc-700 rounded-xl p-3 text-sm outline-none resize-none font-mono text-white focus:border-purple-400">15: Efsanevi Sandık&#10;12: 500 Altın&#10;11: 400 Altın&#10;9: 300 Altın&#10;8: 200 Altın&#10;7: 100 Altın&#10;6: 50 Altın&#10;5: 10 Altın&#10;4: İksir&#10;3: Çöp</textarea>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <div id="note-modal" class="bulk-modal">
+            <div class="bulk-content border-t-2 border-amber-500 flex flex-col h-[70vh] max-h-[700px] w-full max-w-4xl">
+                <button onclick="closeNoteModal()" class="rules-close">✕</button>
+                <h2 id="note-player-name" class="text-4xl font-black uppercase text-amber-500 mb-3 tracking-widest shrink-0 drop-shadow-md text-center">OYUNCU ADI</h2>
+                <div class="text-[11px] text-zinc-400 font-bold uppercase mb-4 border-b border-zinc-700 pb-2 text-center">İlgili Mesajlar & Hesap Analizi</div>
+                <div class="flex-1 bg-black/60 rounded-xl border border-zinc-800 p-6 overflow-y-auto custom-scrollbar flex flex-col gap-3 shadow-inner" id="note-content-list">
+                </div>
+            </div>
+        </div>
+<div id="kvkk-modal" class="bulk-modal">
+            <div class="bulk-content border-t-2 border-emerald-500 flex flex-col h-[80vh] max-h-[800px] w-full max-w-4xl">
+                <button onclick="closeKvkkModal()" class="rules-close">✕</button>
+                <h2 class="text-3xl font-black uppercase text-emerald-500 mb-3 tracking-widest shrink-0 drop-shadow-md text-center">KVKK Aydınlatma Metni</h2>
+                <div class="text-[11px] text-zinc-400 font-bold uppercase mb-4 border-b border-zinc-700 pb-2 text-center">Kişisel Verilerin Korunması Kanunu Kapsamında Bilgilendirme</div>
+                <div class="flex-1 bg-black/60 rounded-xl border border-zinc-800 p-6 overflow-y-auto custom-scrollbar flex flex-col gap-4 shadow-inner text-sm text-zinc-300 leading-relaxed">
+                    <p><strong>1. Veri Sorumlusu ve Amacı</strong><br>
+                    Bu etkinlik ve yönetim paneli, yayıncı/etkinlik düzenleyicisi tarafından yönetilmektedir. Sisteme katılan izleyicilerin temel verileri (kullanıcı adları ve sohbete gönderdikleri mesajlar), etkinliklerin, çekilişlerin ve oyunların (Örn: Skor Tahmini, Yaratık Arenası vb.) adil ve şeffaf bir şekilde yürütülebilmesi amacıyla geçici olarak işlenmektedir.</p>
+
+                    <p><strong>2. İşlenen Kişisel Veriler</strong><br>
+                    Bu sistem, YouTube API aracılığıyla yalnızca genel erişime açık olan şu bilgileri anlık olarak çeker:<br>
+                    • YouTube Kullanıcı Adı (Display Name)<br>
+                    • İlgili canlı yayındaki sohbet mesajı içeriği (Chat Messages)<br>
+                    Sistem hiçbir şekilde kullanıcı şifreleri, e-posta adresleri veya benzeri özel nitelikli kişisel verileri talep etmez veya toplamaz.</p>
+
+                    <p><strong>3. Verilerin İşlenme Hukuki Sebebi</strong><br>
+                    Kişisel verileriniz, 6698 sayılı Kişisel Verilerin Korunması Kanunu (“KVKK”) madde 5/2 uyarınca "İlgili kişinin temel hak ve özgürlüklerine zarar vermemek kaydıyla, veri sorumlusunun meşru menfaatleri için veri işlenmesinin zorunlu olması" kapsamında ve oyun/etkinlik kurallarına katılım sağladığınız için işlenmektedir.</p>
+
+                    <p><strong>4. Verilerin Saklanması ve Aktarımı</strong><br>
+                    Sistem tarafından toplanan veriler sunucu tabanlı merkezi bir veritabanında <u>saklanmamaktadır</u>. Veriler, yayıncının mevcut tarayıcısı üzerinde (Local Storage) geçici olarak tutulur. Etkinlik sonuçlandığında, yayıncı tarafından "Dışa Aktar" seçeneği kullanılarak yalnızca kazanan listeleri arşiv amacıyla yerel olarak indirilebilir. Veriler herhangi bir üçüncü şahıs şirketle, reklam ajansıyla veya kurumla kesinlikle <u>paylaşılmamaktadır</u>.</p>
+
+                    <p><strong>5. İlgili Kişinin Hakları</strong><br>
+                    KVKK'nın 11. maddesi uyarınca veri sahibi olarak; kişisel verilerinizin işlenip işlenmediğini öğrenme, işlenmişse bilgi talep etme, amacına uygun kullanılıp kullanılmadığını öğrenme ve sistemden verilerinizin silinmesini talep etme hakkına sahipsiniz. Silinme talepleri için doğrudan yayını düzenleyen veri sorumlusuna (Yayıncı/Moderatör) ulaşabilirsiniz.</p>
+        
+                </div>
+            </div>
+        </div>
+
+        <!-- NEW REVOLUTIONARY DIALOGS: Replacing alert() & confirm() completely with amazing visual styles -->
+        <div id="custom-alert-modal" class="bulk-modal z-[300]">
+            <div class="bulk-content border-2 border-amber-500 bg-[#140a05] text-white p-6 rounded-2xl max-w-sm text-center">
+                <div class="text-amber-500 text-3xl mb-3"><i class="fa-solid fa-circle-exclamation"></i></div>
+                <p id="custom-alert-msg" class="text-sm font-bold uppercase tracking-wider mb-5">Mesaj İçeriği</p>
+                <button onclick="closeCustomAlert()" class="bg-amber-600 hover:bg-amber-500 text-white font-black px-6 py-2 rounded-xl transition uppercase text-xs tracking-widest border border-amber-400">Tamam</button>
+            </div>
+        </div>
+
+        <div id="custom-confirm-modal" class="bulk-modal z-[300]">
+            <div class="bulk-content border-2 border-red-500 bg-[#1a0505] text-white p-6 rounded-2xl max-w-sm text-center">
+                <div class="text-red-500 text-3xl mb-3"><i class="fa-solid fa-triangle-exclamation"></i></div>
+                <p id="custom-confirm-msg" class="text-sm font-bold uppercase tracking-wider mb-5">Emin misiniz?</p>
+                <div class="flex gap-4 justify-center">
+                    <button id="custom-confirm-yes" class="bg-red-600 hover:bg-red-500 text-white font-black px-6 py-2 rounded-xl transition uppercase text-xs tracking-widest border border-red-400 flex-1">Evet</button>
+                    <button onclick="closeCustomConfirm()" class="bg-zinc-700 hover:bg-zinc-600 text-white font-black px-6 py-2 rounded-xl transition uppercase text-xs tracking-widest border border-zinc-500 flex-1">Hayır</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- REWARD ASSIGNMENT MODAL -->
+        <div id="reward-assign-modal" class="bulk-modal">
+            <div class="bulk-content border-2 border-amber-500/80 flex flex-col w-full max-w-md shadow-[0_0_50px_rgba(245,158,11,0.3)] bg-gradient-to-b from-[#221006] to-[#0a0503] relative">
+                <button onclick="window.closeRewardAssignModal()" class="rules-close">✕</button>
+                
+                <div class="flex justify-center mb-2">
+                    <span class="text-amber-500 text-2xl filter drop-shadow-[0_0_8px_rgba(245,158,11,0.6)]"><i class="fa-solid fa-dragon"></i></span>
+                </div>
+
+                <h2 id="assign-modal-title" class="text-2xl font-black uppercase text-white mb-1 tracking-widest text-center italic drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">ÖDÜL EKLE</h2>
+                <p id="assign-modal-subtitle" class="text-[11px] text-amber-400 font-bold uppercase mb-4 text-center border-b border-amber-500/20 pb-2 tracking-widest">Kutuya Ekle</p>
+                
+                <div class="flex flex-col gap-4">
+                    <div>
+                        <label id="assign-label-1" class="text-xs uppercase text-amber-500/80 font-bold mb-1.5 block tracking-wider">1 Kişiye Kaç Adet/Miktar Verilecek?</label>
+                        <div class="relative">
+                            <span class="absolute left-4 top-1/2 -translate-y-1/2 text-amber-500/50"><i class="fa-solid fa-coins"></i></span>
+                            <input type="text" id="assign-input-1" placeholder="Örn: 100" class="w-full bg-black/60 border border-amber-500/30 rounded-xl p-3 pl-10 text-white outline-none font-bold text-base text-center transition focus:border-amber-500 focus:ring-1 focus:ring-amber-500/50">
+                        </div>
+                    </div>
+
+                    <div id="assign-input-2-wrapper">
+                        <label id="assign-label-2" class="text-xs uppercase text-amber-500/80 font-bold mb-1.5 block tracking-wider">Kaç Kişiye (Kaç Adet) Dağıtılacak?</label>
+                        <div class="relative">
+                            <span class="absolute left-4 top-1/2 -translate-y-1/2 text-amber-500/50"><i class="fa-solid fa-boxes-stacked"></i></span>
+                            <input type="number" id="assign-input-2" placeholder="Örn: 5" class="w-full bg-black/60 border border-amber-500/30 rounded-xl p-3 pl-10 text-white outline-none font-bold text-base text-center transition focus:border-amber-500 focus:ring-1 focus:ring-amber-500/50">
+                        </div>
+                    </div>
+
+                    <div id="mirror-points-wrapper" class="hidden">
+                        <label class="text-xs uppercase text-purple-400 font-bold mb-2 block tracking-wider text-center"><i class="fa-solid fa-wand-magic-sparkles mr-1"></i> Aynada Eşleşecek Puanı Seçin</label>
+                        <div id="mirror-points-grid" class="grid grid-cols-5 gap-2 bg-black/40 p-3 rounded-xl border border-purple-500/20 max-h-[180px] overflow-y-auto custom-scrollbar">
+                        </div>
+                        <p class="text-[10px] text-zinc-500 italic mt-1 text-center"><i class="fa-solid fa-circle-info mr-1"></i> Başka ödül atanmış (dolu) puanlar otomatik olarak kilitlenmiştir.</p>
+                    </div>
+
+                    <button id="assign-confirm-btn" onclick="window.confirmRewardAssignment()" class="w-full bg-gradient-to-r from-amber-600 to-amber-800 hover:from-amber-500 hover:to-amber-700 text-white font-black py-4 rounded-xl transition uppercase shadow-lg mt-2 border border-amber-400/30 tracking-widest text-sm">ONAYLA VE EKLE</button>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        const state = {
+            isBoxOpened: false, boxRewards: [],
+            boxTimer: { intervalId: null, count: 45 },
+            mirrorTimer: { intervalId: null, count: 45 },
+            wheelTimer: { intervalId: null, count: 45 },
+            wheelAngle: 0, isWheelSpinning: false,
+            
+            // --- OYUNCU ÇARKI YENİ STATE ---
+            isPlayerWheelVisible: false,
+            playerWheelAngle: 0, 
+            isPlayerWheelSpinning: false,
+
+            mirrorValues: [], mirrorSelections: 0, mirrorCurrentTotal: 0, mirrorCount: 15, mirrorSelectionIndices: [],
+            totalMirrorRewards: 0, // EKLENEN SAYAÇ STATE'İ
+
+            warRewardsConfig: [], rewardPool: [], 
+            config: { boxCount: 50, gameDuration: 45, pointCooldown: 5, rewards: [], wheelRewards: [], mirrorRewardsMap: {}, wheelSize: 450, warRewards: [] },
+            coinGame: { phase: 'idle', targetCount: 1, reward: '', savedWinners: [], currentPool: [], bets: {}, round: 1 },
+            colors: ["#b91c1c", "#c2410c", "#d97706", "#b45309", "#84cc16", "#047857", "#0f766e", "#0e7490", "#0369a1", "#1d4ed8", "#4338ca", "#5b21b6", "#6d28d9", "#a21caf", "#be185d", "#be185d", "#be123c"],
+            youtube: { apiKeys: ['AIzaSyCH3zgoKH7MmFfxuKjig5ewsFF0gmfdxbg', 'AIzaSyC-T4N030IYv19qNiusdDd64c03Edezcrw', 'AIzaSyAPWtlVqkvVVxB6C2sn7QUUu0JzDXzo2iE', 'AIzaSyAE7TUO-WWEqRzK3o0GlrykKYyVWpOK28g'], currentKeyIndex: 0, liveChatId: null, videoId: null, nextPageToken: '', intervalId: null, keyword: '!katıl', isActive: false, quota: { total: 30000, used: 0 }, connectionTime: null },
+            poolAccepting: true, 
+            liveParticipants: new Map(), allUserMessages: new Map(), 
+            points: {}, 
+            lastPointTime: new Map(), 
+            globalWinners: new Set(), winners: [],              
+            activePlayers: { box: null, mirror: null, wheel: null }
+        };
+
+        // --- CUSTOM MODERN DLALOG FUNCTIONS ---
+        window.showAlert = function(msg) {
+            document.getElementById('custom-alert-msg').innerText = msg;
+            document.getElementById('custom-alert-modal').classList.add('active');
+        }
+
+        window.closeCustomAlert = function() {
+            document.getElementById('custom-alert-modal').classList.remove('active');
+        }
+
+        let currentConfirmCallback = null;
+        window.showConfirm = function(msg, callback) {
+            document.getElementById('custom-confirm-msg').innerText = msg;
+            currentConfirmCallback = callback;
+            document.getElementById('custom-confirm-modal').classList.add('active');
+        }
+
+        window.closeCustomConfirm = function() {
+            document.getElementById('custom-confirm-modal').classList.remove('active');
+            currentConfirmCallback = null;
+        }
+
+        document.getElementById('custom-confirm-yes').onclick = function() {
+            if (currentConfirmCallback) currentConfirmCallback();
+            closeCustomConfirm();
+        }
+
+        // --- VERİ KAYDEDİCİ VE YÜKLEYİCİ (LOCAL STORAGE) ---
+        function saveState() {
+            const dataToSave = {
+                points: state.points,
+                boxRewards: document.getElementById('reward-input').value,
+                wheelRewards: document.getElementById('wheel-reward-input').value,
+                warRewards: document.getElementById('war-reward-input').value,
+                mirrorRewards: document.getElementById('mirror-reward-input').value
+            };
+            localStorage.setItem('dwar_saved_state', JSON.stringify(dataToSave));
+        }
+
+        function loadState() {
+            const saved = localStorage.getItem('dwar_saved_state');
+            if(saved) {
+                try {
+                    const parsed = JSON.parse(saved);
+                    if(parsed.points) state.points = parsed.points;
+                    if(parsed.boxRewards) document.getElementById('reward-input').value = parsed.boxRewards;
+                    if(parsed.wheelRewards) document.getElementById('wheel-reward-input').value = parsed.wheelRewards;
+                    if(parsed.warRewards) document.getElementById('war-reward-input').value = parsed.warRewards;
+                    if(parsed.mirrorRewards) document.getElementById('mirror-reward-input').value = parsed.mirrorRewards;
+                } catch(e) {}
+            }
+        }
+
+        // --- BAŞLATMA ---
+        function init() { 
+            window.state = state;
+            loadState();
+            window.updateSettingsAndSync(false); 
+            window.requestAnimationFrame(drawWheel); 
+            window.requestAnimationFrame(drawPlayerWheel); 
+            createMirrorGrid();
+            window.populateGiveawayPoolSelect();
+            if (document.getElementById('rank-page').classList.contains('hidden-page') === false) window.renderRankList();
+        }
+
+        // --- STREAMING_CHUNK: Writing Coin game (Yazı-Tura Survival) logic... ---
+        let currentCoinRotation = 0;
+
+        window.startCoinGame = function() {
+            const target = parseInt(document.getElementById('coin-target-count').value) || 1;
+            const reward = document.getElementById('coin-reward').value.trim() || "Sürpriz Ödül";
+            
+            const validKeys = Array.from(state.liveParticipants.keys()).filter(k => {
+                const p = state.liveParticipants.get(k);
+                return !state.globalWinners.has(p.name);
+            });
+
+            if (validKeys.length === 0) return window.showAlert("Havuzda geçerli oyuncu yok! Önce canlı havuzu doldurun.");
+            
+            state.coinGame.targetCount = target;
+            state.coinGame.reward = reward;
+            state.coinGame.currentPool = validKeys;
+            state.coinGame.savedWinners = [];
+            state.coinGame.bets = {};
+            state.coinGame.round = 1;
+            state.coinGame.phase = 'betting';
+            
+            document.getElementById('coin-start-btn').classList.add('hidden');
+            document.getElementById('coin-reset-btn').classList.remove('hidden');
+            document.getElementById('coin-round-display').classList.remove('hidden');
+            document.getElementById('coin-bet-stats').classList.remove('hidden');
+            document.getElementById('coin-action-container').classList.remove('hidden');
+            document.getElementById('coin-status-msg').innerText = "Sohbetten !yazı veya !tura yazmaları bekleniyor...";
+            
+            currentCoinRotation = 0;
+            document.getElementById('coin-element').classList.add('reset');
+            document.getElementById('coin-element').style.transform = `rotateY(0deg)`;
+            setTimeout(() => document.getElementById('coin-element').classList.remove('reset'), 50);
+
+            window.updateCoinUI();
+        }
+
+        window.resetCoinGame = function() {
+            state.coinGame.phase = 'idle';
+            document.getElementById('coin-start-btn').classList.remove('hidden');
+            document.getElementById('coin-reset-btn').classList.add('hidden');
+            document.getElementById('coin-round-display').classList.add('hidden');
+            document.getElementById('coin-bet-stats').classList.add('hidden');
+            document.getElementById('coin-action-container').classList.add('hidden');
+            document.getElementById('coin-status-msg').innerText = "";
+            
+            document.getElementById('coin-saved-list').innerHTML = "";
+            document.getElementById('coin-pool-list').innerHTML = "";
+            document.getElementById('coin-saved-count').innerText = "0";
+            document.getElementById('coin-pool-count').innerText = "0";
+            
+            document.getElementById('coin-yazi-count').innerText = "0";
+            document.getElementById('coin-tura-count').innerText = "0";
+            document.getElementById('coin-none-count').innerText = "0";
+            document.getElementById('coin-flip-btn').disabled = false;
+        }
+
+        window.updateCoinUI = function() {
+            if(state.coinGame.phase === 'idle') return;
+            
+            document.getElementById('coin-round-text').innerText = state.coinGame.round;
+            
+            let yazi = 0, tura = 0;
+            state.coinGame.currentPool.forEach(a => {
+                if(state.coinGame.bets[a] === 'yazi') yazi++;
+                if(state.coinGame.bets[a] === 'tura') tura++;
+            });
+            
+            document.getElementById('coin-yazi-count').innerText = yazi;
+            document.getElementById('coin-tura-count').innerText = tura;
+            document.getElementById('coin-none-count').innerText = state.coinGame.currentPool.length - (yazi + tura);
+            
+            const poolList = document.getElementById('coin-pool-list');
+            poolList.innerHTML = "";
+            state.coinGame.currentPool.forEach(a => {
+                const p = state.liveParticipants.get(a);
+                const bet = state.coinGame.bets[a];
+                let betHtml = bet === 'yazi' ? '<span class="text-amber-400 font-bold ml-2">YAZI</span>' : (bet === 'tura' ? '<span class="text-sky-400 font-bold ml-2">TURA</span>' : '<span class="text-zinc-600 ml-2">Bekliyor</span>');
+                poolList.innerHTML += `<div class="bg-zinc-900/50 p-2 rounded flex justify-between items-center text-zinc-300 border border-zinc-800"><span>${p.name}</span> ${betHtml}</div>`;
+            });
+            document.getElementById('coin-pool-count').innerText = state.coinGame.currentPool.length;
+            
+            const savedList = document.getElementById('coin-saved-list');
+            savedList.innerHTML = "";
+            state.coinGame.savedWinners.forEach(p => {
+                savedList.innerHTML += `<div class="bg-emerald-900/40 p-2 rounded flex items-center gap-2 text-emerald-300 border border-emerald-500/30 font-bold"><i class="fa-solid fa-check"></i> ${p.name}</div>`;
+            });
+            document.getElementById('coin-saved-count').innerText = state.coinGame.savedWinners.length;
+        }
+
+        window.flipCoin = function() {
+            if (state.coinGame.phase !== 'betting') return;
+            state.coinGame.phase = 'flipping';
+            
+            document.getElementById('coin-flip-btn').disabled = true;
+            document.getElementById('coin-status-msg').innerText = "PARA ATILIYOR...";
+            
+            const isYazi = Math.random() < 0.5;
+            const spins = 10; 
+            
+            const targetMod = isYazi ? 0 : 180;
+            const currentMod = currentCoinRotation % 360;
+            let diff = targetMod - currentMod;
+            if (diff < 0) diff += 360;
+            
+            currentCoinRotation += (spins * 360) + diff;
+            
+            const coinEl = document.getElementById('coin-element');
+            coinEl.style.transform = `rotateY(${currentCoinRotation}deg)`;
+            
+            setTimeout(() => {
+                resolveCoinRound(isYazi ? 'yazi' : 'tura');
+            }, 3300);
+        }
+
+        function resolveCoinRound(result) {
+            const correct = state.coinGame.currentPool.filter(a => state.coinGame.bets[a] === result);
+            const incorrect = state.coinGame.currentPool.filter(a => state.coinGame.bets[a] !== result);
+            
+            if (correct.length === 0) {
+                state.coinGame.phase = 'ended';
+                document.getElementById('coin-status-msg').innerText = `SONUÇ ${result.toUpperCase()}! KİMSE DOĞRU TAHMİN EDEMEDİ! OYUN BİTTİ.`;
+                document.getElementById('coin-action-container').classList.add('hidden');
+            } else if (correct.length <= state.coinGame.targetCount) {
+                correct.forEach(a => {
+                    const p = state.liveParticipants.get(a);
+                    state.coinGame.savedWinners.push(p);
+                });
+                state.coinGame.currentPool = [];
+                state.coinGame.phase = 'ended';
+                document.getElementById('coin-status-msg').innerText = `SONUÇ ${result.toUpperCase()}! HEDEFE ULAŞILDI! KAZANANLAR BELİRLENDİ.`;
+                document.getElementById('coin-action-container').classList.add('hidden');
+                
+                state.coinGame.savedWinners.forEach(p => {
+                    window.saveToArchive(p.name, "YAZI TURA", "Hayatta Kalma", state.coinGame.reward, p.race || "", true);
+                });
+            } else {
+                state.coinGame.currentPool = correct;
+                state.coinGame.phase = 'betting';
+                state.coinGame.round++;
+                state.coinGame.bets = {};
+                document.getElementById('coin-flip-btn').disabled = false;
+                document.getElementById('coin-status-msg').innerText = `${result === 'yazi' ? 'YAZI' : 'TURA'} GELDİ! Kazananlarla devam ediliyor. Sonraki tur için !yazı veya !tura yazın...`;
+            }
+            
+            window.updateCoinUI();
+        }
+
+        // --- STREAMING_CHUNK: Setting up global sync and randomized wheel rewards... ---
+        window.updateSettingsAndSync = function(showAlert = true) {
+            state.config.boxCount = parseInt(document.getElementById('box-count-input').value) || 50;
+            state.config.gameDuration = parseInt(document.getElementById('game-duration-input').value) || 45;
+            state.config.pointCooldown = parseInt(document.getElementById('rank-cooldown-input').value) || 5;
+            
+            state.config.rewards = document.getElementById('reward-input').value.split('\n').filter(r => r.trim() !== "");
+            
+            // RANDOMIZING WHEEL REWARDS: Added shuffle here to keep wheel sectors totally randomized!
+            state.config.wheelRewards = shuffleArray(document.getElementById('wheel-reward-input').value.split('\n').filter(r => r.trim() !== ""));
+            
+            const warRaw = document.getElementById('war-reward-input').value.split('\n').filter(r => r.trim() !== "");
+            state.warRewardsConfig = warRaw.map(line => {
+                const parts = line.split(':');
+                const name = parts[0].trim();
+                const weight = parts.length > 1 ? parseInt(parts[1]) || 1 : 1;
+                return { name, weight };
+            });
+            
+            const mirrorLines = document.getElementById('mirror-reward-input').value.split('\n');
+            state.config.mirrorRewardsMap = {};
+            mirrorLines.forEach(l => { const parts = l.split(':'); if(parts.length === 2) state.config.mirrorRewardsMap[parts[0].trim()] = parts[1].trim(); });
+            
+            shuffleRewards(); createBoxes(state.config.boxCount); drawWheel(); renderMirrorRewardTable(); 
+            saveState();
+            if(showAlert) window.showAlert("Tüm ayarlar başarıyla kaydedildi, çark ödülleri karıştırıldı ve senkronize edildi!");
+        }
+
+        window.switchTab = function(tab) {
+            const pages = { chat: 'chat-page', game: 'game-page', mirror: 'mirror-page', wheel: 'wheel-page', war: 'war-page', giveaway: 'giveaway-page', rank: 'rank-page', pool: 'pool-page', config: 'config-page', winners: 'winners-page', coin: 'coin-page' };
+            Object.keys(pages).forEach(key => {
+                const p = document.getElementById(pages[key]);
+                const b = document.getElementById('tab-' + key);
+                if(p) p.classList.toggle('hidden-page', key !== tab);
+                if(b) b.classList.toggle('active', key === tab);
+            });
+            if(tab === 'pool') window.renderRewardPool(); 
+            if(tab === 'winners') window.renderWinnersArchive();
+            if(tab === 'rank') window.renderRankList();
+            if(tab === 'giveaway') window.populateGiveawayPoolSelect();
+            
+            if(tab === 'wheel') {
+                drawWheel();
+                drawPlayerWheel();
+            }
+        }
+
+        window.findRewardImage = function(rewardText) {
+            if(!rewardText) return null;
+            const cleanText = rewardText.trim().toLocaleLowerCase('tr-TR');
+            const strippedText = cleanText.replace(/^\d+x?\s*/i, '').trim(); 
+
+            const found = state.rewardPool.find(p => {
+                const poolName = p.name.trim().toLocaleLowerCase('tr-TR');
+                return strippedText === poolName || cleanText.includes(poolName);
+            });
+            return found ? found.image : null;
+        }
+
+        window.confirmReset = function() { 
+            window.showConfirm("Tüm sistemi sıfırlamak istediğinize emin misiniz? Arşiv ve havuz dahil her şey silinecek.", () => {
+                localStorage.removeItem('dwar_saved_state');
+                window.showAlert("Sistem temizlendi."); 
+                location.reload(); 
+            });
+        }
+
+        // --- ARŞİV VE KAZANANLAR ---
+        window.saveToArchive = function(n, t, d, r, race, isWin = true) { 
+            state.winners.push({ name: n, type: t, detail: d, reward: r, time: new Date().toLocaleTimeString() }); 
+            if(isWin) {
+                state.globalWinners.add(n); 
+            }
+            updateLiveParticipantsUI(); 
+        }
+
+        window.renderWinnersArchive = function() {
+            const container = document.getElementById('winners-archive-container');
+            container.innerHTML = '';
+            if (state.winners.length === 0) { container.innerHTML = '<div class="col-span-full text-center text-zinc-500 italic py-10 text-xl">Henüz hiçbir işlem kaydı yok.</div>'; return; }
+
+            const groups = {};
+            state.winners.forEach(w => {
+                let r = w.reward || "Tanımsız Ödüller";
+                if(r === "Ödül Yok" || r === "Hiçbir Şey" || r === "İade" || r === "Pas") r = "Pas Geçilenler / Kaybedenler";
+                if (!groups[r]) groups[r] = [];
+                groups[r].push(w);
+            });
+
+            for (const [rewardName, winList] of Object.entries(groups)) {
+                let html = `
+                    <div class="bg-black/60 border border-emerald-500/30 rounded-2xl p-5 shadow-xl relative overflow-hidden group flex flex-col h-full">
+                        <div class="absolute top-0 left-0 w-1 h-full bg-emerald-500 group-hover:bg-emerald-400 transition-colors"></div>
+                        <h3 class="text-xl font-black text-white border-b border-zinc-700 pb-3 mb-4 flex items-center gap-3 drop-shadow-md shrink-0">
+                            <span class="bg-emerald-900/50 p-2 rounded-lg text-emerald-400"><i class="fa-solid fa-gift"></i></span> 
+                            <span class="truncate">${rewardName}</span>
+                        </h3>
+                        <div class="flex-1 flex flex-col gap-2 overflow-y-auto custom-scrollbar pr-2 min-h-0">
+                `;
+                
+                winList.reverse().forEach(w => {
+                    const escapedName = w.name.replace(/'/g, "\\'");
+                    html += `
+                        <div class="flex justify-between items-center bg-zinc-900/50 hover:bg-zinc-800 p-3 rounded-xl border border-zinc-800 transition shrink-0">
+                            <div class="flex items-center gap-3 overflow-hidden cursor-pointer group/winner" onclick="showPlayerNote('${escapedName}')" title="Sohbet geçmişini gör">
+                                <div class="w-8 h-8 shrink-0 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center text-zinc-400 text-xs group-hover/winner:text-amber-400 group-hover/winner:border-amber-500/50 transition"><i class="fa-solid fa-user"></i></div>
+                                <div class="overflow-hidden">
+                                    <div class="font-bold text-zinc-200 text-sm truncate group-hover/winner:text-white transition">${w.name}</div>
+                                    <div class="text-[10px] text-emerald-500 font-bold uppercase">${w.type}</div>
+                                </div>
+                            </div>
+                            <div class="text-[10px] text-zinc-500 shrink-0 ml-2 bg-black px-2 py-1 rounded border border-zinc-800">${w.time}</div>
+                        </div>
+                    `;
+                });
+                html += `</div></div>`;
+                container.innerHTML += html;
+            }
+        }
+
+        window.exportWinners = function() {
+            if (state.winners.length === 0) return window.showAlert("Dışa aktarılacak veri yok!");
+            const grouped = {};
+            state.winners.forEach(w => {
+                const reward = w.reward || "Bilinmeyen Ödül";
+                if (!grouped[reward]) grouped[reward] = [];
+                grouped[reward].push(w.name);
+            });
+            let textContent = "DWAR ETKİNLİK MERKEZİ - KAZANANLAR LİSTESİ\n";
+            textContent += "Tarih: " + new Date().toLocaleString() + "\n==========================================\n\n";
+            for (const [reward, names] of Object.entries(grouped)) {
+                textContent += `>>> ÖDÜL ${reward} <<<\n------------------------------------------\n`;
+                names.forEach((name, index) => { textContent += `${index + 1}. ${name}\n`; });
+                textContent += `\n`; 
+            }
+            const blob = new Blob([textContent], { type: 'text/plain;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            link.setAttribute("href", url);
+            link.setAttribute("download", "dwar_kazananlar.txt");
+            document.body.appendChild(link);
+            link.click(); document.body.removeChild(link);
+        }
+
+        // --- HAVUZ YÖNETİMİ ---
+        window.autoFillRewardName = function(input) {
+            if (input.files && input.files[0]) {
+                let fileName = input.files[0].name;
+                fileName = fileName.replace(/\.[^/.]+$/, ""); 
+                document.getElementById('pool-reward-name').value = fileName;
+            }
+        }
+
+        window.addRewardToPool = function() {
+            const nameInput = document.getElementById('pool-reward-name').value.trim();
+            const fileInput = document.getElementById('pool-reward-file');
+
+            if(!nameInput) return window.showAlert("Lütfen ödül adını giriniz veya bir dosya seçiniz.");
+
+            const finalName = nameInput;
+
+            if (fileInput.files && fileInput.files[0]) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    state.rewardPool.push({ id: Date.now(), name: finalName, image: e.target.result });
+                    window.renderRewardPool();
+                    clearPoolInputs();
+                }
+                reader.readAsDataURL(fileInput.files[0]);
+            } else {
+                state.rewardPool.push({ id: Date.now(), name: finalName, image: null });
+                window.renderRewardPool();
+                clearPoolInputs();
+            }
+        }
+        
+        function clearPoolInputs() {
+            document.getElementById('pool-reward-name').value = ""; 
+            document.getElementById('pool-reward-file').value = "";
+        }
+
+        window.removeRewardFromPool = function(id) {
+            window.showConfirm("Bu ödülü havuzdan silmek istediğinize emin misiniz?", () => {
+                state.rewardPool = state.rewardPool.filter(r => r.id !== id);
+                window.renderRewardPool();
+            });
+        }
+
+        window.filterPool = function() {
+            const term = document.getElementById('pool-search').value.toLocaleLowerCase('tr-TR');
+            const items = document.querySelectorAll('.pool-item');
+            items.forEach(item => {
+                const name = item.querySelector('.truncate').innerText.toLocaleLowerCase('tr-TR');
+                item.style.display = name.includes(term) ? 'flex' : 'none';
+            });
+        }
+
+        // --- STREAMING_CHUNK: Writing Assign and Confirm reward assignment methods... ---
+        let currentAssignContext = null;
+        let selectedMirrorPoint = null; 
+
+        window.openRewardAssignModal = function(type, id) {
+            const item = state.rewardPool.find(r => r.id === id);
+            if(!item) return;
+            currentAssignContext = { type, id, item };
+            selectedMirrorPoint = null; 
+
+            const modal = document.getElementById('reward-assign-modal');
+            const title = document.getElementById('assign-modal-title');
+            const subtitle = document.getElementById('assign-modal-subtitle');
+            const label1 = document.getElementById('assign-label-1');
+            const label2 = document.getElementById('assign-label-2');
+            const input1 = document.getElementById('assign-input-1');
+            const input2 = document.getElementById('assign-input-2');
+            const confirmBtn = document.getElementById('assign-confirm-btn');
+
+            const input2Wrapper = document.getElementById('assign-input-2-wrapper');
+            const mirrorPointsWrapper = document.getElementById('mirror-points-wrapper');
+
+            title.innerText = item.name;
+            input1.value = "1";
+            input2.value = "1";
+
+            if (type === 'box') {
+                modal.querySelector('.bulk-content').className = "bulk-content border-2 border-amber-500/80 flex flex-col w-full max-w-md shadow-[0_0_50px_rgba(245,158,11,0.4)] bg-gradient-to-b from-[#221006] to-[#0a0503] relative";
+                subtitle.innerText = "KUTUYA EKLE";
+                subtitle.className = "text-[11px] text-amber-400 font-bold uppercase mb-4 text-center border-b border-amber-500/20 pb-2 tracking-widest";
+                label1.innerText = "1 Kutu İçine Kaç Adet/Miktar Konulacak? (Örn: 100)";
+                label2.innerText = "Bu Ödül Toplam Kaç Kutuya Eklenecek? (Örn: 5)";
+                
+                input2Wrapper.classList.remove('hidden');
+                mirrorPointsWrapper.classList.add('hidden');
+                confirmBtn.className = "w-full bg-gradient-to-r from-amber-600 to-amber-800 hover:from-amber-500 hover:to-amber-700 text-white font-black py-4 rounded-xl transition uppercase shadow-[0_0_20px_rgba(217,119,6,0.5)] border border-amber-400/30 mt-2 tracking-widest text-sm";
+                confirmBtn.disabled = false;
+            } else if (type === 'wheel') {
+                modal.querySelector('.bulk-content').className = "bulk-content border-2 border-emerald-500/80 flex flex-col w-full max-w-md shadow-[0_0_50px_rgba(16,185,129,0.4)] bg-gradient-to-b from-[#061c12] to-[#030a07] relative";
+                subtitle.innerText = "ÇARKA EKLE";
+                subtitle.className = "text-[11px] text-emerald-400 font-bold uppercase mb-4 text-center border-b border-emerald-500/20 pb-2 tracking-widest";
+                label1.innerText = "1 Çark Dilimine Kaç Adet/Miktar Konulacak? (Örn: 100)";
+                label2.innerText = "Çarkta Toplam Kaç Dilime Eklenecek? (Örn: 2)";
+                
+                input2Wrapper.classList.remove('hidden');
+                mirrorPointsWrapper.classList.add('hidden');
+                confirmBtn.className = "w-full bg-gradient-to-r from-emerald-600 to-emerald-800 hover:from-emerald-500 hover:to-emerald-700 text-white font-black py-4 rounded-xl transition uppercase shadow-[0_0_20px_rgba(16,185,129,0.5)] border border-emerald-400/30 mt-2 tracking-widest text-sm";
+                confirmBtn.disabled = false;
+            } else if (type === 'mirror') {
+                modal.querySelector('.bulk-content').className = "bulk-content border-2 border-purple-500/80 flex flex-col w-full max-w-md shadow-[0_0_50px_rgba(147,51,234,0.4)] bg-gradient-to-b from-[#180a22] to-[#08030b] relative";
+                subtitle.innerText = "AYNA KARTLARINA EKLE";
+                subtitle.className = "text-[11px] text-purple-400 font-bold uppercase mb-4 text-center border-b border-purple-500/20 pb-2 tracking-widest";
+                label1.innerText = "Ayna Kazananına Kaç Adet/Miktar Verilecek? (Örn: 100)";
+                
+                input2Wrapper.classList.add('hidden');
+                mirrorPointsWrapper.classList.remove('hidden');
+                
+                confirmBtn.className = "w-full bg-zinc-800 text-zinc-500 font-black py-4 rounded-xl uppercase border border-zinc-700 mt-2 cursor-not-allowed opacity-50 text-sm tracking-widest";
+                confirmBtn.disabled = true;
+
+                const points = [3, 4, 5, 6, 7, 8, 9, 11, 12, 15];
+                const pointGrid = document.getElementById('mirror-points-grid');
+                pointGrid.innerHTML = '';
+
+                const currentMirrorText = document.getElementById('mirror-reward-input').value;
+                const assignedPoints = {};
+                currentMirrorText.split('\n').forEach(line => {
+                    const parts = line.split(':');
+                    if (parts.length === 2) {
+                        const pt = parseInt(parts[0].trim());
+                        const rewardVal = parts[1].trim();
+                        if (rewardVal && rewardVal.toLowerCase() !== 'çöp') {
+                            assignedPoints[pt] = rewardVal;
+                        }
+                    }
+                });
+
+                points.forEach(pt => {
+                    const btn = document.createElement('button');
+                    const isOccupied = assignedPoints[pt] !== undefined;
+                    btn.type = "button";
+                    
+                    if (isOccupied) {
+                        btn.className = "flex flex-col items-center justify-center p-2 rounded-xl border border-red-900/50 bg-red-950/20 text-zinc-500 cursor-not-allowed opacity-40 relative overflow-hidden";
+                        btn.disabled = true;
+                        btn.innerHTML = `
+                            <span class="text-xs font-black">${pt} Puan</span>
+                            <span class="text-[8px] font-bold text-red-500 uppercase tracking-widest mt-0.5">DOLU</span>
+                        `;
+                    } else {
+                        btn.className = "flex flex-col items-center justify-center p-2 rounded-xl border border-purple-500/20 bg-zinc-900/80 hover:bg-purple-950/40 hover:border-purple-500/50 text-purple-300 transition-all cursor-pointer transform hover:scale-105 active:scale-95";
+                        btn.onclick = () => {
+                            pointGrid.querySelectorAll('button:not([disabled])').forEach(b => {
+                                b.className = "flex flex-col items-center justify-center p-2 rounded-xl border border-purple-500/20 bg-zinc-900/80 hover:bg-purple-950/40 hover:border-purple-500/50 text-purple-300 transition-all cursor-pointer transform hover:scale-105 active:scale-95";
+                            });
+                            btn.className = "flex flex-col items-center justify-center p-2 rounded-xl border-2 border-yellow-400 bg-purple-900/80 text-yellow-300 transition-all cursor-pointer transform scale-105 shadow-[0_0_15px_rgba(250,204,21,0.4)]";
+                            selectedMirrorPoint = pt;
+                            
+                            confirmBtn.className = "w-full bg-gradient-to-r from-purple-600 to-purple-800 hover:from-purple-500 hover:to-purple-700 text-white font-black py-4 rounded-xl transition uppercase shadow-[0_0_20px_rgba(147,51,234,0.5)] border border-purple-400/30 mt-2 cursor-pointer opacity-100 tracking-widest text-sm";
+                            confirmBtn.disabled = false;
+                        };
+                        btn.innerHTML = `
+                            <span class="text-xs font-black">${pt} Puan</span>
+                            <span class="text-[8px] font-bold text-emerald-400 uppercase tracking-widest mt-0.5">BOŞ</span>
+                        `;
+                    }
+                    pointGrid.appendChild(btn);
+                });
+            }
+
+            modal.classList.add('active');
+        }
+
+        window.closeRewardAssignModal = function() {
+            document.getElementById('reward-assign-modal').classList.remove('active');
+            currentAssignContext = null;
+            selectedMirrorPoint = null;
+        }
+
+        window.confirmRewardAssignment = function() {
+            if (!currentAssignContext) return;
+            
+            const { type, item } = currentAssignContext;
+            const amountVal = document.getElementById('assign-input-1').value.trim();
+            const countOrPointVal = document.getElementById('assign-input-2').value.trim();
+
+            const finalRewardName = amountVal && amountVal !== "" ? `${amountVal} ${item.name}` : item.name;
+
+            if (type === 'box') {
+                const count = parseInt(countOrPointVal) || 1;
+                let textToAdd = "";
+                for(let i=0; i<count; i++) textToAdd += finalRewardName + "\n";
+                const currentVal = document.getElementById('reward-input').value.trim();
+                document.getElementById('reward-input').value = currentVal ? currentVal + "\n" + textToAdd.trim() : textToAdd.trim(); 
+            } else if (type === 'wheel') {
+                const count = parseInt(countOrPointVal) || 1;
+                let textToAdd = "";
+                for(let i=0; i<count; i++) textToAdd += finalRewardName + "\n";
+                const currentVal = document.getElementById('wheel-reward-input').value.trim();
+                document.getElementById('wheel-reward-input').value = currentVal ? currentVal + "\n" + textToAdd.trim() : textToAdd.trim(); 
+            } else if (type === 'mirror') {
+                const p = selectedMirrorPoint;
+                if (!p) return window.showAlert("Lütfen bir puan seçimi yapınız.");
+                
+                let currentText = document.getElementById('mirror-reward-input').value;
+                const regex = new RegExp(`^${p}:.*$`, 'm'); 
+                
+                if (regex.test(currentText)) {
+                    currentText = currentText.replace(regex, `${p}: ${finalRewardName}`);
+                } else {
+                    currentText += `\n${p}: ${finalRewardName}`;
+                }
+                
+                currentText = currentText.split('\n').filter(l => l.trim() !== '').join('\n');
+                document.getElementById('mirror-reward-input').value = currentText;
+            }
+
+            document.getElementById('reward-input').value = document.getElementById('reward-input').value.replace(/\n{2,}/g, '\n');
+            document.getElementById('wheel-reward-input').value = document.getElementById('wheel-reward-input').value.replace(/\n{2,}/g, '\n');
+
+            window.updateSettingsAndSync(false);
+            window.closeRewardAssignModal();
+        }
+
+        window.renderRewardPool = function() {
+            const list = document.getElementById('pool-list-display');
+            list.innerHTML = "";
+            if(state.rewardPool.length === 0) {
+                list.innerHTML = '<div class="text-center w-full col-span-3 text-zinc-500 text-base italic py-10">Havuz boş. Yukarıdan veya OneDrive masaüstü klasörünüzden resim yükleyerek ödül ekleyin.</div>';
+                return;
+            }
+            state.rewardPool.forEach(r => {
+                const hasImg = r.image && r.image.trim() !== "";
+                list.innerHTML += `
+                    <div class="pool-item group">
+                        ${hasImg ? `<img src="${r.image}" class="pool-img" onerror="this.style.display='none'">` : '<div class="pool-img flex items-center justify-center text-zinc-600 text-xs font-bold">YOK</div>'}
+                        <div class="flex-1 overflow-hidden">
+                            <div class="text-sm font-bold text-white truncate">${r.name}</div>
+                            <div class="flex gap-2 mt-2 opacity-60 group-hover:opacity-100 transition">
+                                <button onclick="window.openRewardAssignModal('box', ${r.id})" class="text-[10px] bg-sky-900/50 hover:bg-sky-600 px-3 py-1 rounded text-sky-200 hover:text-white border border-sky-500/30">Kutuya</button>
+                                <button onclick="window.openRewardAssignModal('wheel', ${r.id})" class="text-[10px] bg-emerald-900/50 hover:bg-emerald-600 px-3 py-1 rounded text-emerald-200 hover:text-white border border-emerald-500/30">Çarka</button>
+                                <button onclick="window.openRewardAssignModal('mirror', ${r.id})" class="text-[10px] bg-purple-900/50 hover:bg-purple-600 px-3 py-1 rounded text-purple-200 hover:text-white border border-purple-500/30">Aynaya</button>
+                            </div>
+                        </div>
+                        <button onclick="window.removeRewardFromPool(${r.id})" class="text-red-500 hover:text-red-300 font-bold px-3 text-lg">✕</button>
+                    </div>
+                `;
+            });
+            window.filterPool();
+            window.populateGiveawayPoolSelect(); // Keeps classic giveaway reward pool dropdown fully updated
+        }
+
+        function extractVideoId(urlOrId) {
+            const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|live\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+            const match = urlOrId.match(regExp);
+            return (match && match[2].length === 11) ? match[2] : urlOrId;
+        }
+
+        const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+        function shuffleArray(array) {
+            let arr = [...array];
+            for (let i = arr.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [arr[i], arr[j]] = [arr[j], arr[i]];
+            }
+            return arr;
+        }
+
+        // --- YOUTUBE API ---
+        async function connectYouTube() {
+            const rawVideoInput = document.getElementById('yt-video-url').value.trim();
+            state.youtube.keyword = document.getElementById('yt-keyword').value.trim();
+            const statusEl = document.getElementById('yt-status');
+
+            if (!rawVideoInput) return window.showAlert("Lütfen Video Linkini giriniz.");
+
+            const videoId = extractVideoId(rawVideoInput);
+            state.youtube.videoId = videoId;
+            statusEl.innerText = "Durum: Canlı yayın aranıyor...";
+            statusEl.className = "mt-3 text-center text-sm font-bold uppercase tracking-widest text-sky-400 animate-pulse";
+
+            let success = false; let lastError = null;
+
+            for (let i = 0; i < state.youtube.apiKeys.length; i++) {
+                state.youtube.currentKeyIndex = i;
+                const apiKey = state.youtube.apiKeys[state.youtube.currentKeyIndex];
+                
+                try {
+                    const videoRes = await fetch(`https://www.googleapis.com/youtube/v3/videos?part=liveStreamingDetails&id=${videoId}&key=${apiKey}`);
+                    const videoData = await videoRes.json();
+
+                    if (!videoRes.ok) throw new Error(videoData.error?.message || "YouTube API Hatası");
+                    if (!videoData.items || videoData.items.length === 0) throw new Error("Video bulunamadı. Lütfen canlı yayın linkini kontrol edin.");
+
+                    const liveDetails = videoData.items[0].liveStreamingDetails;
+                    if (!liveDetails || !liveDetails.activeLiveChatId) throw new Error("Bu video aktif bir canlı yayın değil veya sohbet kapalı.");
+
+                    state.youtube.liveChatId = liveDetails.activeLiveChatId;
+                    state.youtube.isActive = true; 
+                    state.youtube.connectionTime = new Date();
+                    
+                    document.getElementById('yt-connect-btn').classList.add('hidden');
+                    document.getElementById('yt-disconnect-btn').classList.remove('hidden');
+                    document.getElementById('global-yt-controls').classList.remove('hidden');
+                    
+                    statusEl.innerText = `Durum: Bağlandı (API-${i+1}) ✅`;
+                    statusEl.className = "mt-3 text-center text-sm font-bold uppercase tracking-widest text-emerald-400";
+                    
+                    success = true;
+                    pollYouTubeChat(); 
+                    break;
+                } catch (error) { lastError = error; }
+            }
+
+            if (!success) {
+                statusEl.innerText = "Hata: " + lastError.message;
+                statusEl.className = "mt-3 text-center text-sm font-bold uppercase tracking-widest text-red-500";
+            }
+        }
+
+        function toggleYouTubePolling() {
+            if (!state.youtube.liveChatId) return window.showAlert("Lütfen önce YouTube yayınına bağlanın.");
+
+            state.youtube.isActive = !state.youtube.isActive;
+            const btn = document.getElementById('yt-toggle-poll-btn');
+            const statusBadge = document.getElementById('yt-auto-mode-status');
+
+            if (state.youtube.isActive) {
+                btn.innerText = "DURDUR";
+                btn.className = "bg-red-600 hover:bg-red-500 px-4 py-1.5 rounded-lg text-[10px] font-black uppercase text-white shadow-md transition whitespace-nowrap min-w-[80px]";
+                pollYouTubeChat();
+            } else {
+                btn.innerText = "BAŞLAT";
+                btn.className = "bg-emerald-600 hover:bg-emerald-500 px-4 py-1.5 rounded-lg text-[10px] font-black uppercase text-white shadow-md transition whitespace-nowrap min-w-[80px]";
+                clearTimeout(state.youtube.intervalId); 
+                statusBadge.innerText = "SİSTEM DURDURULDU";
+                statusBadge.className = "bg-zinc-800 text-zinc-500 border border-zinc-700 px-3 py-1.5 rounded-lg text-[9px] font-black uppercase shadow-sm transition-all text-center min-w-[120px]";
+            }
+        }
+
+        window.togglePool = function() {
+            state.poolAccepting = !state.poolAccepting;
+            const btn = document.getElementById('toggle-pool-btn');
+            if(state.poolAccepting) {
+                btn.innerText = "Havuz Katılımı: AÇIK";
+                btn.className = "text-xs text-emerald-400 hover:text-white font-bold uppercase border border-emerald-500/30 px-4 py-2 rounded bg-emerald-900/20 transition hover:bg-emerald-600 shadow-md";
+            } else {
+                btn.innerText = "Havuz Katılımı: KAPALI";
+                btn.className = "text-xs text-red-400 hover:text-white font-bold uppercase border border-red-500/30 px-4 py-2 rounded bg-red-900/20 transition hover:bg-red-600 shadow-md";
+            }
+        }
+
+        function updateQuotaUI() {
+            const used = state.youtube.quota.used; const total = state.youtube.quota.total;
+            document.getElementById('header-quota-text').innerText = `${used} / ${total}`;
+            const pctText = document.getElementById('header-quota-text');
+            pctText.className = `text-[11px] ${used < total * 0.6 ? 'text-emerald-400' : (used < total * 0.85 ? 'text-amber-400' : 'text-red-500 animate-pulse')}`;
+        }
+
+        async function pollYouTubeChat() {
+            clearTimeout(state.youtube.intervalId);
+            if (!state.youtube.liveChatId || !state.youtube.isActive) return;
+
+            if (state.youtube.quota.used >= state.youtube.quota.total) {
+                toggleYouTubePolling();
+                return window.showAlert("Uyarı: Toplam API Limit Kotanız Doldu! İşlem durduruldu.");
+            }
+
+            const isInstantMode = state.activePlayers.box || state.activePlayers.mirror || state.activePlayers.wheel || state.coinGame.phase === 'betting';
+            const pollInterval = isInstantMode ? 1200 : 5000; 
+            
+            const statusBadge = document.getElementById('yt-auto-mode-status');
+            if(statusBadge) {
+                if(isInstantMode) {
+                    statusBadge.innerText = "⚡ ANLIK OYUNCU (1.2s)";
+                    statusBadge.className = "bg-zinc-800 text-red-500 border border-red-500 px-3 py-1.5 rounded-lg text-[9px] font-black uppercase shadow-[0_0_10px_rgba(239,68,68,0.3)] transition-all text-center min-w-[120px] animate-pulse";
+                } else {
+                    statusBadge.innerText = "⏳ STANDART (5s)";
+                    statusBadge.className = "bg-zinc-800 text-sky-400 border border-sky-500 px-3 py-1.5 rounded-lg text-[9px] font-black uppercase shadow-sm transition-all text-center min-w-[120px]";
+                }
+            }
+
+            const apiKey = state.youtube.apiKeys[state.youtube.currentKeyIndex];
+
+            try {
+                state.youtube.quota.used += 1; updateQuotaUI();
+                let url = `https://www.googleapis.com/youtube/v3/liveChat/messages?liveChatId=${state.youtube.liveChatId}&part=snippet,authorDetails&maxResults=2000&key=${apiKey}`;
+                if (state.youtube.nextPageToken) url += `&pageToken=${state.youtube.nextPageToken}`;
+
+                const res = await fetch(url);
+                const data = await res.json();
+
+                if (!res.ok) {
+                    if (res.status === 403 || res.status === 429) {
+                        state.youtube.currentKeyIndex = (state.youtube.currentKeyIndex + 1) % state.youtube.apiKeys.length;
+                        console.warn("Mevcut API kotası doldu, diğer anahtara hızlı geçiş yapılıyor...");
+                        if (state.youtube.isActive) state.youtube.intervalId = setTimeout(() => pollYouTubeChat(), 500);
+                        return; 
+                    }
+                    throw new Error(data.error?.message || "API Hatası");
+                }
+
+                if (data.items && data.items.length > 0) {
+                    let newAdded = false;
+                    let coinBetUpdated = false;
+                    
+                    data.items.forEach(item => {
+                        const msg = item.snippet.displayMessage;
+                        const author = item.authorDetails.displayName;
+                        const publishedAt = new Date(item.snippet.publishedAt);
+                        
+                        if (state.youtube.connectionTime && publishedAt < state.youtube.connectionTime) {
+                            return; 
+                        }
+
+                        const cleanMsg = msg ? msg.toLocaleLowerCase('tr-TR').trim() : "";
+
+                        const nowTime = Date.now();
+                        let isSpam = false;
+                        const userLastTime = state.lastPointTime.get(author) || 0;
+                        
+                        if (!state.allUserMessages.has(author)) state.allUserMessages.set(author, []);
+                        const userMsgs = state.allUserMessages.get(author);
+
+                        if (userMsgs.length > 0 && userMsgs[userMsgs.length - 1].text.toLocaleLowerCase('tr-TR').trim() === cleanMsg) {
+                            isSpam = true; 
+                        }
+                        
+                        const cooldownLimit = (state.config.pointCooldown || 5) * 1000;
+                        if (!isSpam && (nowTime - userLastTime >= cooldownLimit)) {
+                            state.points[author] = (state.points[author] || 0) + 1;
+                            state.lastPointTime.set(author, nowTime);
+                            saveState(); 
+                        }
+                        
+                        if (userMsgs.length === 0 || userMsgs[userMsgs.length - 1].text !== msg) {
+                            userMsgs.push({ time: new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', second:'2-digit'}), text: msg });
+                            if(userMsgs.length > 50) userMsgs.shift();
+                        }
+
+                        const kw = state.youtube.keyword.toLocaleLowerCase('tr-TR').trim();
+                        
+                        const isCommand = cleanMsg === kw || cleanMsg.startsWith(kw + ' ');
+                        if (isCommand) {
+                            const nickKey = author;
+                            
+                            let race = null;
+                            if (cleanMsg.includes('i̇nsan') || cleanMsg.includes('insan')) race = 'insan';
+                            if (cleanMsg.includes('magron') || cleanMsg.includes('magi') || cleanMsg.includes('magmar')) race = 'magron';
+
+                            if (!state.liveParticipants.has(nickKey)) {
+                                if (state.poolAccepting) { 
+                                    state.liveParticipants.set(nickKey, { id: nickKey, name: author, note: msg, race: race });
+                                    newAdded = true;
+                                }
+                            } else {
+                                const existing = state.liveParticipants.get(nickKey);
+                                existing.note = msg; 
+                                if (race) existing.race = race;
+                                state.liveParticipants.set(nickKey, existing);
+                                newAdded = true; 
+                            }
+                        }
+
+                        const pKey = author;
+                        if (pKey) {
+                            if (state.coinGame.phase === 'betting') {
+                                if (cleanMsg.includes('!yazı') || cleanMsg.includes('!yazi') || cleanMsg.includes('!tura')) {
+                                    if (state.coinGame.currentPool.includes(pKey)) {
+                                        state.coinGame.bets[pKey] = cleanMsg.includes('!tura') ? 'tura' : 'yazi';
+                                        coinBetUpdated = true;
+                                    }
+                                }
+                            }
+
+                            let updatedRace = null;
+                            if (cleanMsg.includes('i̇nsan') || cleanMsg.includes('insan')) updatedRace = 'insan';
+                            if (cleanMsg.includes('magron') || cleanMsg.includes('magi') || cleanMsg.includes('magmar')) updatedRace = 'magron';
+                            
+                            if (updatedRace) {
+                                const participant = state.liveParticipants.get(pKey);
+                                if (participant && participant.race !== updatedRace) {
+                                    participant.race = updatedRace;
+                                    newAdded = true; 
+                                }
+                            }
+                        }
+
+                        if (document.getElementById('note-modal').classList.contains('active')) {
+                            const activeModalPlayer = document.getElementById('note-player-name').innerText;
+                            updateNoteModalContent(activeModalPlayer);
+                        }
+
+                        ['box', 'mirror', 'wheel'].forEach(game => {
+                            const ap = state.activePlayers[game];
+                            if (ap && ap.name === author) {
+                                const msgEl = document.getElementById(`active-msg-${game}`);
+                                if (msgEl) {
+                                    msgEl.innerText = `💬: ${msg}`; 
+                                    msgEl.classList.add('show');
+                                    msgEl.classList.add('animate-pulse', 'text-white', 'border-amber-400');
+                                    setTimeout(() => msgEl.classList.remove('animate-pulse', 'text-white', 'border-amber-400'), 1000);
+                                }
+                            }
+                        });
+                    });
+
+                    if (newAdded) updateLiveParticipantsUI();
+                    if (coinBetUpdated) window.updateCoinUI();
+                    if (document.getElementById('rank-page').classList.contains('hidden-page') === false) window.renderRankList(); 
+                }
+
+                state.youtube.nextPageToken = data.nextPageToken;
+                if (state.youtube.isActive) state.youtube.intervalId = setTimeout(() => pollYouTubeChat(), pollInterval);
+
+            } catch (error) {
+                console.error("Chat okuma hatası:", error);
+                if (state.youtube.isActive) state.youtube.intervalId = setTimeout(() => pollYouTubeChat(), pollInterval);
+            }
+        }
+
+        function disconnectYouTube() {
+            clearTimeout(state.youtube.intervalId); 
+            state.youtube.isActive = false; state.youtube.liveChatId = null; state.youtube.nextPageToken = '';
+            state.youtube.connectionTime = null; 
+            document.getElementById('yt-connect-btn').classList.remove('hidden'); document.getElementById('yt-disconnect-btn').classList.add('hidden'); document.getElementById('global-yt-controls').classList.add('hidden');
+            const btn = document.getElementById('yt-toggle-poll-btn'); btn.innerText = "BAŞLAT"; btn.className = "bg-emerald-600 hover:bg-emerald-500 px-4 py-1.5 rounded-lg text-[10px] font-black uppercase text-white shadow-md transition whitespace-nowrap min-w-[80px]";
+            const statusEl = document.getElementById('yt-status'); statusEl.innerText = "Durum: Bağlantı kesildi."; statusEl.className = "mt-3 text-center text-sm font-bold uppercase tracking-widest text-zinc-500";
+        }
+
+        function clearParticipants() {
+            window.showConfirm("Mevcut katılımcı havuzunu silmek istediğinize emin misiniz?", () => {
+                state.liveParticipants.clear(); 
+                updateLiveParticipantsUI();
+            });
+        }
+
+        window.filterLiveParticipants = function() { updateLiveParticipantsUI(); };
+
+        function updateLiveParticipantsUI() {
+            const listEl = document.getElementById('yt-participant-list'); const searchInput = document.getElementById('live-pool-search');
+            const term = searchInput ? searchInput.value.toLocaleLowerCase('tr-TR') : ''; 
+            const frag = document.createDocumentFragment(); const participants = Array.from(state.liveParticipants.values());
+
+            const totalCount = participants.length;
+            const drawnCount = state.globalWinners.size;
+
+            participants.forEach(p => {
+                const isWinner = state.globalWinners.has(p.name);
+                if (term && !p.name.toLocaleLowerCase('tr-TR').includes(term)) return;
+
+                let raceIcon = ""; if(p.race === 'insan') raceIcon = "🛡️"; if(p.race === 'magron') raceIcon = "🔥";
+                
+                const bgClass = isWinner ? "bg-amber-900/30 border-amber-500/50" : "bg-black/60 border-zinc-700";
+                const textClass = isWinner ? "text-white" : "text-zinc-200";
+                const badge = isWinner ? `<span class="text-[9px] bg-amber-600/80 text-white px-2 py-0.5 rounded font-black">ÖDÜL ALDI</span>` : '';
+
+                const div = document.createElement('div');
+                div.className = `${bgClass} p-3 rounded-lg text-sm font-bold ${textClass} shadow-sm flex flex-col gap-1 border transition-colors hover:border-emerald-500/50 cursor-pointer` ;
+                div.onclick = () => showPlayerNote(p.name);
+                div.innerHTML = `<div class="flex justify-between items-center w-full"><span class="truncate flex items-center"><i class="fa-solid fa-user text-zinc-500 text-[10px] mr-2"></i> ${p.name}</span><span class="text-base ml-2">${raceIcon}</span></div>${badge ? `<div class="text-[10px] text-amber-300 truncate w-full flex items-center justify-end mt-1 border-t border-amber-500/30 pt-2">${badge}</div>` : ''}`;
+                frag.appendChild(div);
+            });
+
+            listEl.innerHTML = ''; listEl.appendChild(frag); 
+            document.getElementById('yt-total-count').innerText = totalCount;
+            document.getElementById('yt-drawn-count').innerText = drawnCount;
+            
+            if (listEl.children.length === 0) listEl.innerHTML = `<div class="col-span-full text-center text-zinc-500 italic text-base mt-10">Havuz boş veya herkes filtrelendi.</div>`;
+            
+            if(document.getElementById('wheel-page').classList.contains('hidden-page') === false) {
+                drawPlayerWheel();
+            }
+        }
+
+        // --- SOHBET AKTİFLİK SIRALAMASI ---
+        window.renderRankList = function() {
+            const container = document.getElementById('rank-list-container');
+            const pointEntries = Object.entries(state.points).sort((a, b) => b[1] - a[1]);
+
+            if (pointEntries.length === 0) {
+                container.innerHTML = '<div class="col-span-full text-center text-zinc-500 italic text-sm mt-10">Kimse puan kazanmadı.</div>';
+                return;
+            }
+
+            container.innerHTML = '';
+            pointEntries.forEach((entry, index) => {
+                const author = entry[0];
+                const points = entry[1];
+                let rankColor = "text-zinc-400";
+                let rankIcon = "";
+
+                if (index === 0) { rankColor = "text-amber-400"; rankIcon = "🥇"; }
+                else if (index === 1) { rankColor = "text-zinc-300"; rankIcon = "🥈"; }
+                else if (index === 2) { rankColor = "text-amber-600"; rankIcon = "🥉"; }
+
+                container.innerHTML += `
+                    <div class="bg-black/60 border border-zinc-700 p-4 rounded-xl flex items-center justify-between shadow-md">
+                        <div class="flex items-center gap-3">
+                            <span class="text-xl ${rankColor} font-black w-8 text-center">${rankIcon || (index + 1)}</span>
+                            <span class="text-white font-bold truncate max-w-[150px] cursor-pointer hover:text-purple-400 transition" onclick="showPlayerNote('${author}')">${author}</span>
+                        </div>
+                        <div class="text-emerald-400 font-black text-lg bg-emerald-900/30 px-3 py-1 rounded-lg">${points} P</div>
+                    </div>
+                `;
+            });
+        }
+
+        window.resetRanks = function() {
+            window.showConfirm("Tüm oyuncuların puanlarını sıfırlamak istiyor musunuz?", () => {
+                state.points = {};
+                saveState();
+                renderRankList();
+            });
+        }
+
+        // --- HAVUZDAN OYUNCU SEÇİMİ ---
+        function pullFromLivePool(ignoreSet = new Set()) {
+            const validKeys = Array.from(state.liveParticipants.keys()).filter(k => {
+                const p = state.liveParticipants.get(k);
+                return !state.globalWinners.has(p.name) && !Object.values(state.activePlayers).map(ap => ap?.id).includes(p.id) && !ignoreSet.has(p.id);
+            });
+
+            if (validKeys.length > 0) {
+                const randomId = validKeys[Math.floor(Math.random() * validKeys.length)];
+                const selectedObj = state.liveParticipants.get(randomId);
+                return { id: selectedObj.id, name: selectedObj.name, race: selectedObj.race };
+            }
+            return null;
+        }
+
+        function pullFromLivePoolWithRace(requiredRace, ignoreSet = new Set()) {
+            const validKeys = Array.from(state.liveParticipants.keys()).filter(k => {
+                const p = state.liveParticipants.get(k);
+                return p.race === requiredRace && !state.globalWinners.has(p.name) && !Object.values(state.activePlayers).map(ap => ap?.id).includes(p.id) && !ignoreSet.has(p.id);
+            });
+
+            if (validKeys.length > 0) {
+                const randomId = validKeys[Math.floor(Math.random() * validKeys.length)];
+                const selectedObj = state.liveParticipants.get(randomId);
+                return { id: selectedObj.id, name: selectedObj.name, race: selectedObj.race };
+            }
+            return null; 
+        }
+        
+        function selectPlayerForGame(gameType) {
+            let pData = pullFromLivePool();
+            if (!pData) {
+                window.showAlert("Uyarı: Canlı havuzda ödül almamış uygun oyuncu yok! Örnek isim ile devam ediliyor.");
+                pData = { id: 'ornek', name: "ÖrnekOyuncu", race: null };
+            }
+            
+            state.activePlayers[gameType] = pData;
+            const displayName = pData.name;
+
+            const msgBox = document.getElementById(`active-msg-${gameType}`);
+            if(msgBox) { msgBox.innerText = "💬 Bekleniyor..."; msgBox.classList.add('show'); }
+            
+            if (gameType === 'box' || gameType === 'mirror' || gameType === 'wheel') {
+                const timerVal = state.config.gameDuration || 45;
+                let timerObj = state[`${gameType}Timer`];
+                
+                timerObj.count = timerVal;
+                document.getElementById(`${gameType}-timer`).innerText = timerVal;
+                document.getElementById(`${gameType}-timer-container`).classList.remove('hidden');
+
+                clearInterval(timerObj.intervalId);
+                timerObj.intervalId = setInterval(() => {
+                    timerObj.count--;
+                    document.getElementById(`${gameType}-timer`).innerText = timerObj.count;
+                    if(timerObj.count <= 0) {
+                        clearInterval(timerObj.intervalId);
+                        document.getElementById(`${gameType}-timer`).innerText = "Süre Doldu!";
+                    }
+                }, 1000);
+            }
+
+            if (gameType === 'box') {
+                document.getElementById('active-player-box').innerHTML = displayName;
+                document.getElementById('active-player-box-container').classList.remove('hidden');
+                document.getElementById('btn-select-box').classList.add('hidden');
+            } else if (gameType === 'mirror') {
+                document.getElementById('active-player-mirror').innerHTML = displayName;
+                document.getElementById('active-player-mirror-container').classList.remove('hidden');
+                document.getElementById('btn-select-mirror').classList.add('hidden');
+                state.mirrorSelections = 0; state.mirrorCurrentTotal = 0; 
+                document.getElementById('mirror-total-score-panel').classList.add('opacity-0'); document.getElementById('mirror-result-announcement').classList.add('opacity-0'); document.getElementById('mirror-total-score').innerText = "0"; 
+                document.querySelectorAll('.pyramid-item').forEach(i => i.classList.remove('highlight')); createMirrorGrid(); 
+            } else if (gameType === 'wheel') {
+                document.getElementById('active-player-wheel').innerHTML = displayName;
+                document.getElementById('active-player-wheel-container').classList.remove('hidden');
+                document.getElementById('btn-select-wheel').classList.add('hidden');
+                document.getElementById('wheel-winner-reward').classList.add('opacity-0');
+            }
+        }
+
+        window.skipAndSelectNew = function(gameType) {
+            if (gameType === 'box' && state.isBoxOpened) return window.showAlert("Kutu zaten açıldı! Pas geçemezsiniz.");
+            state.activePlayers[gameType] = null;
+            
+            if(gameType === 'box' || gameType === 'mirror' || gameType === 'wheel') {
+                clearInterval(state[`${gameType}Timer`].intervalId);
+                document.getElementById(`${gameType}-timer-container`).classList.add('hidden');
+            }
+
+            if(gameType === 'wheel') {
+                document.getElementById('btn-select-wheel').classList.remove('hidden');
+                document.getElementById('active-player-wheel-container').classList.add('hidden');
+                return; 
+            }
+
+            selectPlayerForGame(gameType);
+        };
+
+        // --- MODALLAR ---
+        function closeNoteModal() { document.getElementById('note-modal').classList.remove('active'); }
+
+        window.showLivePlayerNote = function(gameType) {
+            const playerObj = state.activePlayers[gameType];
+            if (!playerObj) return;
+            showPlayerNote(playerObj.name);
+        }
+        
+        window.showPlayerNote = function(playerName) {
+            document.getElementById('note-player-name').innerText = playerName;
+            updateNoteModalContent(playerName);
+            document.getElementById('note-modal').classList.add('active');
+        }
+
+        window.openKvkkModal = function() {
+            document.getElementById('kvkk-modal').classList.add('active');
+        }
+
+        window.closeKvkkModal = function() {
+            document.getElementById('kvkk-modal').classList.remove('active');
+        }
+
+        function updateNoteModalContent(playerName) {
+            const container = document.getElementById('note-content-list'); container.innerHTML = '';
+            const participant = state.liveParticipants.get(playerName);
+
+            container.innerHTML += `<div class="text-[11px] text-zinc-400 font-bold uppercase mb-4">YouTube Hesabı: <span class="text-white">${playerName}</span></div>`;
+
+            let allMsgs = state.allUserMessages.get(playerName) || [];
+
+            if (participant && participant.note) {
+                container.innerHTML += `<div class="bg-emerald-950/40 border-2 border-emerald-500/80 p-4 rounded-xl text-emerald-100 shadow-[0_0_15px_rgba(16,185,129,0.2)] text-base mb-4 relative overflow-hidden shrink-0"><div class="absolute -top-4 -right-3 text-5xl opacity-20">📌</div><div class="text-[11px] text-emerald-400 font-black mb-2 border-b border-emerald-500/30 pb-1 inline-flex items-center gap-2 uppercase tracking-widest"><i class="fa-solid fa-thumbtack text-amber-400"></i> SON KATILIM MESAJI</div><div class="leading-tight font-black text-lg text-white drop-shadow-md">${participant.note}</div></div>`;
+            }
+
+            if (allMsgs.length === 0 && (!participant || !participant.note)) {
+                container.innerHTML += `<div class="text-zinc-500 italic text-center mt-6 text-lg">Bu oyuncunun henüz sohbet kaydı bulunmuyor.</div>`; return;
+            }
+
+            allMsgs.slice().reverse().forEach(m => {
+                container.innerHTML += `<div class="bg-black/80 border border-zinc-700 p-4 rounded-lg text-zinc-200 shadow-sm text-base mb-2">
+                    <div class="flex justify-between items-center text-[10px] text-amber-500 font-bold mb-2 border-b border-zinc-700 pb-1 w-full"><span>${playerName}</span><span>${m.time}</span></div>
+                    <div class="leading-tight font-bold">${m.text}</div>
+                </div>`;
+            });
+        }
+
+        // --- IMPROVED CLASSIC GIVEAWAY INTEGRATIONS ---
+        window.populateGiveawayPoolSelect = function() {
+            const select = document.getElementById('giveaway-pool-select');
+            if(!select) return;
+            const currentSelected = select.value;
+            select.innerHTML = '<option value="">-- Havuz Dışı / Manuel Yaz --</option>';
+            state.rewardPool.forEach(item => {
+                const opt = document.createElement('option');
+                opt.value = item.name;
+                opt.innerText = item.name;
+                if(item.name === currentSelected) {
+                    opt.selected = true;
+                }
+                select.appendChild(opt);
+            });
+        }
+
+        window.selectGiveawayPoolReward = function(select) {
+            const rewardName = select.value;
+            const textInput = document.getElementById('giveaway-reward');
+            if (rewardName) {
+                textInput.value = rewardName;
+            } else {
+                textInput.value = "";
+            }
+        }
+
+        window.handleGiveawayFileSelect = function(input) {
+            if (input.files && input.files[0]) {
+                let fileName = input.files[0].name.replace(/\.[^/.]+$/, ""); 
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    state.rewardPool.push({ id: Date.now(), name: fileName, image: e.target.result });
+                    window.renderRewardPool(); 
+                    document.getElementById('giveaway-reward').value = fileName;
+                    const select = document.getElementById('giveaway-pool-select');
+                    if(select) {
+                        setTimeout(() => {
+                            select.value = fileName;
+                        }, 50);
+                    }
+                }
+                reader.readAsDataURL(input.files[0]);
+            }
+        }
+
+        window.startGiveaway = function() {
+            const count = parseInt(document.getElementById('giveaway-count').value) || 1;
+            const qty = parseInt(document.getElementById('giveaway-reward-qty').value) || 1;
+            const rewardBase = document.getElementById('giveaway-reward').value.trim() || "Sürpriz Ödül";
+            const finalReward = qty > 1 ? `${qty}x ${rewardBase}` : rewardBase;
+
+            const validKeys = Array.from(state.liveParticipants.keys()).filter(k => {
+                const p = state.liveParticipants.get(k);
+                return !state.globalWinners.has(p.name) && !Object.values(state.activePlayers).map(ap => ap?.id).includes(p.id);
+            });
+
+            if (validKeys.length < count) return window.showAlert(`Havuzda yeterli uygun oyuncu yok! (İstenen: ${count}, Mevcut uygun: ${validKeys.length})`);
+
+            const shuffled = validKeys.sort(() => 0.5 - Math.random());
+            const winners = shuffled.slice(0, count).map(k => state.liveParticipants.get(k));
+            const resultsDiv = document.getElementById('giveaway-results'); 
+            resultsDiv.innerHTML = ''; 
+            
+            const placeholder = document.getElementById('giveaway-placeholder');
+            if(placeholder) placeholder.style.display = 'none';
+
+            let index = 0;
+            const revealInterval = setInterval(() => {
+                if (index >= winners.length) { clearInterval(revealInterval); return; }
+                const w = winners[index];
+                
+                const card = document.createElement('div');
+                card.className = "bg-emerald-900/40 border border-emerald-500/50 p-3 rounded-xl flex flex-col shadow-lg animate-[card-deal_0.4s_ease-out_forwards] gap-2 w-full";
+                
+                const rewardImg = window.findRewardImage(rewardBase);
+                let rewardHtml = '';
+                if(rewardImg) {
+                    rewardHtml = `<div class="bg-black/50 px-2 py-2 rounded-md border border-amber-500/30 text-amber-400 font-bold italic text-xs text-center w-full truncate shadow-inner mt-2 flex items-center justify-center gap-2"><img src="${rewardImg}" class="w-6 h-6 object-contain rounded bg-black/60 border border-zinc-700">${finalReward}</div>`;
+                } else {
+                    rewardHtml = `<div class="bg-black/50 px-2 py-2 rounded-md border border-amber-500/30 text-amber-400 font-bold italic text-xs text-center w-full truncate shadow-inner mt-2">${finalReward}</div>`;
+                }
+
+                card.innerHTML = `<div class="text-base font-black text-emerald-400 cursor-pointer hover:text-white transition drop-shadow-md truncate w-full text-center" onclick="showPlayerNote('${w.name}')">${w.name}</div>${rewardHtml}`;
+                resultsDiv.appendChild(card);
+                window.saveToArchive(w.name, "KLASİK ÇEKİLİŞ", "Çekiliş", finalReward, w.race || "", true);
+                index++;
+            }, 500);
+        }
+
+        // --- SAVAŞ (IRK SAVAŞI) ---
+        window.getWeightedWarReward = function() {
+            const rewards = state.warRewardsConfig;
+            if (!rewards || rewards.length === 0) return "Savaş Galibiyeti";
+            const totalWeight = rewards.reduce((acc, r) => acc + r.weight, 0);
+            let random = Math.random() * totalWeight;
+            for (const r of rewards) { if (random < r.weight) return r.name; random -= r.weight; }
+            return rewards[0].name;
+        }
+
+        window.drawWarWinners = function(raceType) {
+            const inputId = raceType === 'human' ? 'war-hum-count' : 'war-mag-count';
+            const resultId = raceType === 'human' ? 'war-hum-results' : 'war-mag-results';
+            const count = parseInt(document.getElementById(inputId).value) || 1;
+            const resultContainer = document.getElementById(resultId);
+            resultContainer.innerHTML = ''; 
+
+            let drawnThisRound = new Set(); 
+            for(let i=0; i<count; i++) {
+                const wId = Math.random().toString();
+                let wData = pullFromLivePoolWithRace(raceType === 'human' ? 'insan' : 'magron', drawnThisRound);
+                
+                if (!wData) { window.showAlert(`Yeterli "${raceType === 'human' ? 'İnsan' : 'Magron'}" yazan geçerli savaşçı bulunamadı! Mevcut havuz tükendi.`); break; }
+                drawnThisRound.add(wData.id); 
+
+                const wRace = raceType === 'human' ? `İnsan` : `Magron`;
+                const colorClass = raceType === 'human' ? 'text-blue-400' : 'text-red-400';
+                const rowId = `war-res-${wId.replace('.','')}`;
+                
+                resultContainer.innerHTML += `
+                    <div id="${rowId}" class="w-full bg-black/60 p-3 rounded-xl border border-zinc-700 mb-3 flex flex-row items-center justify-between gap-4 transition-all shadow-md hover:border-zinc-500">
+                        <div class="font-black ${colorClass} text-xl italic tracking-tighter drop-shadow-lg truncate flex-1 text-left cursor-pointer hover:text-white transition" onclick="showPlayerNote('${wData.name}')">${wData.name}</div>
+                        <button onclick="window.revealWarReward('${wId}', '${wData.name}', '${wRace}', '${rowId}')" class="war-reward-btn shrink-0 text-[11px] px-4 py-2">🎲 ÖDÜL BELİRLE</button>
+                    </div>`;
+            }
+        }
+
+        window.revealWarReward = function(userId, userName, userRace, rowId) {
+            const reward = window.getWeightedWarReward();
+            const imgUrl = window.findRewardImage(reward);
+            const container = document.getElementById(rowId);
+            const colorClass = userRace.toLowerCase().includes('insan') ? 'text-blue-400' : 'text-red-400';
+
+            if(container) {
+                let rewardHtml = '';
+                if(imgUrl) {
+                    rewardHtml = `<div class="flex items-center gap-3 animate-pulse bg-black/50 px-3 py-2 rounded-lg border border-amber-500/30"><img src="${imgUrl}" class="w-8 h-8 object-cover rounded bg-black border border-zinc-700"><span class="text-amber-400 text-sm italic font-black">${reward}</span></div>`;
+                } else {
+                    rewardHtml = `<span class="text-amber-400 text-sm italic font-black animate-pulse bg-black/50 px-3 py-2 rounded-lg border border-amber-500/30">${reward}</span>`;
+                }
+                container.innerHTML = `<div class="font-black ${colorClass} text-xl italic tracking-tighter drop-shadow-lg truncate flex-1 text-left cursor-pointer hover:text-white transition" onclick="showPlayerNote('${userName}')">${userName}</div>${rewardHtml}`;
+            }
+            window.saveToArchive(userName, "SAVAŞ", "Irk Savaşı", reward, userRace, true);
+        }
+        
+        // --- BOX (KUTU) OYUNU ---
+        function shuffleRewards() { state.boxRewards = [...state.config.rewards].sort(() => Math.random() - 0.5); }
+        function createBoxes(c) { 
+            const g = document.getElementById('box-grid'); g.innerHTML = ''; g.className = "grid grid-cols-5 lg:grid-cols-10 gap-4 w-full"; 
+            for(let i=1; i<=c; i++) { 
+                g.innerHTML += `<div id="box-${i}" onclick="window.handleBoxClick(${i})" class="box-item mx-auto"><div class="box-inner"><div class="box-front"><div class="box-number-badge">${i}</div><span class="box-icon">🎁</span></div><div class="box-back"><div id="reward-text-${i}" class="text-xs text-center p-1 font-bold text-sky-400 w-full h-full flex flex-col items-center justify-center"></div></div></div></div>`; 
+            } 
+        }
+        
+        window.handleBoxClick = function(n) { 
+            if (!state.activePlayers.box) return window.showAlert("Önce OYUNCU SEÇ butonuna tıklayın!");
+            if(state.isBoxOpened) return; 
+
+            const rawReward = state.boxRewards[n-1] || "Pas"; 
+            let rewardText = rawReward; let rewardImg = null;
+            if (rawReward.includes('|')) { const parts = rawReward.split('|'); rewardText = parts[0].trim(); rewardImg = parts[1].trim(); } 
+            else { rewardImg = window.findRewardImage(rewardText); }
+
+            state.isBoxOpened = true; const boxWinnerName = state.activePlayers.box.name;
+
+            clearInterval(state.boxTimer.intervalId);
+            document.getElementById('box-timer-container').classList.add('hidden');
+
+            document.getElementById(`box-${n}`).classList.add('opened'); 
+            
+            const contentHTML = rewardImg ? `<img src="${rewardImg}" class="w-12 h-12 object-contain mb-2 shadow-[0_0_15px_rgba(251,191,36,0.5)] rounded-md bg-black/50 border border-amber-500/30"><span class="text-[11px] leading-tight text-white font-black">${rewardText}</span>` : `<span class="text-xs font-black text-white leading-tight">${rewardText}</span>`;
+            
+            document.getElementById(`reward-text-${n}`).innerHTML = contentHTML; 
+            document.getElementById('post-box-controls').classList.remove('opacity-0', 'pointer-events-none'); 
+            window.saveToArchive(boxWinnerName, "KUTU", `Kutu #${n}`, rewardText, "", true);
+        }
+
+        window.nextRound = function() { 
+            state.isBoxOpened = false; 
+            document.getElementById('post-box-controls').classList.add('opacity-0', 'pointer-events-none'); 
+            document.getElementById('active-player-box-container').classList.add('hidden');
+            document.getElementById('btn-select-box').classList.remove('hidden');
+            state.activePlayers.box = null;
+        }
+
+        window.togglePlayerWheel = function() {
+            state.isPlayerWheelVisible = !state.isPlayerWheelVisible;
+            const playerContainer = document.getElementById('player-wheel-container');
+            const btn = document.getElementById('btn-toggle-player-wheel');
+            
+            if(state.isPlayerWheelVisible) {
+                playerContainer.classList.remove('hidden');
+                playerContainer.classList.add('flex');
+                btn.classList.add('ring-2', 'ring-purple-400');
+                drawPlayerWheel(); 
+            } else {
+                playerContainer.classList.add('hidden');
+                playerContainer.classList.remove('flex');
+                btn.classList.remove('ring-2', 'ring-purple-400');
+            }
+        }
+
+        function getValidPlayersForWheel() {
+            return Array.from(state.liveParticipants.keys())
+                .map(k => state.liveParticipants.get(k))
+                .filter(p => !state.globalWinners.has(p.name) && !Object.values(state.activePlayers).map(ap => ap?.id).includes(p.id));
+        }
+
+        function drawPlayerWheel() {
+            const canvas = document.getElementById('player-wheel-canvas'); 
+            if(!canvas) return; 
+            const ctx = canvas.getContext('2d'); 
+            const players = getValidPlayersForWheel();
+            
+            const center = canvas.width / 2; const radius = center - 15; 
+            ctx.clearRect(0,0,canvas.width,canvas.height); 
+            
+            if(players.length === 0) { 
+                ctx.fillStyle = "#fbbf24"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.font="bold 20px Rajdhani";
+                ctx.fillText("HAVUZ BOŞ", center, center - 10);
+                return; 
+            } 
+
+            const slice = (Math.PI*2)/players.length; 
+            players.forEach((p, i) => { 
+                ctx.save(); ctx.translate(center,center); ctx.rotate(state.playerWheelAngle + i*slice); 
+                ctx.beginPath(); ctx.moveTo(0,0); ctx.arc(0,0,radius,0,slice); 
+                const pColor = ["#4c1d95", "#5b21b6", "#6d28d9", "#7c3aed", "#1e3a8a", "#1e40af", "#1d4ed8"][i % 7];
+                ctx.fillStyle = pColor; ctx.fill(); 
+                ctx.strokeStyle = "rgba(0,0,0,0.8)"; ctx.lineWidth = 2; ctx.stroke(); 
+                ctx.rotate(slice/2); ctx.fillStyle="white"; ctx.textAlign = "right"; ctx.textBaseline = "middle"; ctx.font="bold 15px Rajdhani"; 
+                ctx.fillText(p.name.substring(0,18), radius - 30, 0); ctx.restore(); 
+            }); 
+            ctx.beginPath(); ctx.arc(center,center,20,0,Math.PI*2); ctx.fillStyle="#09090b"; ctx.fill(); ctx.strokeStyle = "#c084fc"; ctx.lineWidth = 3; ctx.stroke();
+        }
+
+        window.spinPlayerWheel = function() {
+            if(state.isPlayerWheelSpinning) return; 
+            const players = getValidPlayersForWheel();
+            if(players.length === 0) return window.showAlert("Havuzda geçerli oyuncu yok!");
+
+            state.isPlayerWheelSpinning = true; 
+            const spinRounds = 10 + Math.random() * 5; 
+            const targetAngle = state.playerWheelAngle + (Math.PI * 2 * spinRounds); 
+            const startAngle = state.playerWheelAngle; 
+            const duration = 5000; 
+            const startTime = performance.now(); 
+            
+            const anim = (now) => { 
+                const elapsed = now - startTime; const t = Math.min(elapsed / duration, 1); const easeOut = 1 - Math.pow(1 - t, 4); 
+                state.playerWheelAngle = startAngle + (targetAngle - startAngle) * easeOut; drawPlayerWheel(); 
+                
+                if(t < 1) requestAnimationFrame(anim); 
+                else { 
+                    state.isPlayerWheelSpinning = false; 
+                    const slice = (Math.PI*2)/players.length; const offset = (Math.PI * 1.5); 
+                    const normalized = (offset - state.playerWheelAngle) % (Math.PI * 2); 
+                    const finalNorm = normalized < 0 ? normalized + (Math.PI * 2) : normalized; 
+                    const index = Math.floor(finalNorm / slice); 
+                    const winner = players[index]; 
+                    
+                    state.activePlayers.wheel = winner;
+                    document.getElementById('active-player-wheel').innerHTML = winner.name;
+                    document.getElementById('active-player-wheel-container').classList.remove('hidden');
+                    document.getElementById('btn-select-wheel').classList.add('hidden');
+                    
+                    const msgBox = document.getElementById(`active-msg-wheel`);
+                    if(msgBox) { msgBox.innerText = "💬 Bekleniyor..."; msgBox.classList.add('show'); }
+
+                    const timerVal = state.config.gameDuration || 45;
+                    state.wheelTimer.count = timerVal;
+                    document.getElementById('wheel-timer').innerText = timerVal;
+                    document.getElementById('wheel-timer-container').classList.remove('hidden');
+
+                    clearInterval(state.wheelTimer.intervalId);
+                    state.wheelTimer.intervalId = setInterval(() => {
+                        state.wheelTimer.count--;
+                        document.getElementById('wheel-timer').innerText = state.wheelTimer.count;
+                        if(state.wheelTimer.count <= 0) {
+                            clearInterval(state.wheelTimer.intervalId);
+                            document.getElementById('wheel-timer').innerText = "Süre Doldu!";
+                        }
+                    }, 1000);
+                } 
+            }; 
+            requestAnimationFrame(anim); 
+        }
+
+        function drawWheel() { 
+            const canvas = document.getElementById('wheel-canvas'); if(!canvas) return; 
+            const ctx = canvas.getContext('2d'); const rw = state.config.wheelRewards; 
+            const center = canvas.width / 2; const radius = center - 15; 
+            ctx.clearRect(0,0,canvas.width,canvas.height); if(rw.length===0) return; 
+            const slice = (Math.PI*2)/rw.length; 
+            rw.forEach((r, i) => { 
+                ctx.save(); ctx.translate(center,center); ctx.rotate(state.wheelAngle + i*slice); ctx.beginPath(); ctx.moveTo(0,0); ctx.arc(0,0,radius,0,slice); ctx.fillStyle = state.colors[i % state.colors.length]; ctx.fill(); ctx.strokeStyle = "rgba(0,0,0,0.8)"; ctx.lineWidth = 2; ctx.stroke(); ctx.rotate(slice/2); ctx.fillStyle="white"; ctx.textAlign = "right"; ctx.textBaseline = "middle"; ctx.font="bold 16px Rajdhani"; 
+                let displayText = r; if(r.includes('|')) displayText = r.split('|')[0].trim();
+                ctx.fillText(displayText.substring(0,18), radius - 30, 0); ctx.restore(); 
+            }); 
+            ctx.beginPath(); ctx.arc(center,center,20,0,Math.PI*2); ctx.fillStyle="#09090b"; ctx.fill(); ctx.strokeStyle = "#fbbf24"; ctx.lineWidth = 3; ctx.stroke();
+        }
+        
+        window.spinWheel = function() { 
+            if (!state.activePlayers.wheel) return window.showAlert("Önce OYUNCU SEÇ butonunu veya OYUNCU ÇARKINI kullanarak bir oyuncu belirleyin!");
+            if(state.isWheelSpinning) return; 
+            if(state.config.wheelRewards.length === 0) return window.showAlert("Çarkta dağıtılacak ödül kalmadı!");
+
+            clearInterval(state.wheelTimer.intervalId);
+            document.getElementById('wheel-timer-container').classList.add('hidden');
+
+            state.isWheelSpinning = true; const wheelWinnerName = state.activePlayers.wheel.name;
+            const spinRounds = 10 + Math.random() * 5; const targetAngle = state.wheelAngle + (Math.PI * 2 * spinRounds); const startAngle = state.wheelAngle; const duration = 6000; const startTime = performance.now(); 
+            
+            const anim = (now) => { 
+                const elapsed = now - startTime; const t = Math.min(elapsed / duration, 1); const easeOut = 1 - Math.pow(1 - t, 4); 
+                state.wheelAngle = startAngle + (targetAngle - startAngle) * easeOut; drawWheel(); 
+                
+                if(t < 1) requestAnimationFrame(anim); 
+                else { 
+                    state.isWheelSpinning = false; const rw = state.config.wheelRewards; const slice = (Math.PI*2)/rw.length; const offset = (Math.PI * 1.5); 
+                    const normalized = (offset - state.wheelAngle) % (Math.PI * 2); const finalNorm = normalized < 0 ? normalized + (Math.PI * 2) : normalized; 
+                    const index = Math.floor(finalNorm / slice); const result = rw[index]; 
+                    
+                    let rewardText = result; let rewardImg = null;
+                    if (result.includes('|')) { const parts = result.split('|'); rewardText = parts[0].trim(); rewardImg = parts[1].trim(); } 
+                    else { rewardImg = window.findRewardImage(rewardText); }
+                    
+                    const rewardEl = document.getElementById('wheel-winner-reward'); 
+                    
+                    if (rewardImg) {
+                        rewardEl.innerHTML = `<div class="flex items-center justify-center gap-6 bg-black/80 p-4 rounded-2xl border border-amber-500/50 shadow-[0_0_25px_rgba(217,119,6,0.4)] w-full max-w-xl"><img src="${rewardImg}" class="w-20 h-20 object-contain rounded-xl border border-amber-500/30 bg-black/50 shadow-md"><div class="flex flex-col items-start text-left"><span class="text-xs text-zinc-400 font-bold uppercase tracking-widest leading-none mb-2">Kazanan: <span class="text-sky-400 cursor-pointer hover:text-white transition" onclick="showPlayerNote('${wheelWinnerName}')">${wheelWinnerName}</span></span><span class="text-3xl text-amber-500 drop-shadow-md font-black uppercase italic leading-tight">${rewardText}</span></div></div>`;
+                    } else {
+                        rewardEl.innerHTML = `<div class="flex flex-col items-center bg-black/80 p-5 rounded-2xl border border-amber-500/50 shadow-[0_0_25px_rgba(217,119,6,0.4)] w-full max-w-lg"><span class="text-xs text-zinc-400 font-bold uppercase tracking-widest leading-none mb-2">Kazanan: <span class="text-sky-400 cursor-pointer hover:text-white transition" onclick="showPlayerNote('${wheelWinnerName}')">${wheelWinnerName}</span></span><span class="text-3xl text-amber-500 drop-shadow-md font-black uppercase italic leading-tight">${rewardText}</span></div>`;
+                    }
+                    
+                    // Show reward card and enable interaction safely
+                    rewardEl.classList.remove('hidden');
+                    setTimeout(() => {
+                        rewardEl.classList.remove('opacity-0', 'translate-y-2');
+                        rewardEl.classList.add('pointer-events-auto');
+                    }, 50);
+
+                    window.saveToArchive(wheelWinnerName, "ÇARK", "Ödül", rewardText, "", true);
+                    
+                    setTimeout(() => { 
+                        state.config.wheelRewards.splice(index, 1); drawWheel(); 
+                        document.getElementById('btn-select-wheel').classList.remove('hidden'); document.getElementById('active-player-wheel-container').classList.add('hidden');
+                        state.activePlayers.wheel = null; 
+                        
+                        rewardEl.classList.add('opacity-0', 'translate-y-2');
+                        rewardEl.classList.remove('pointer-events-auto');
+                        setTimeout(() => {
+                            rewardEl.classList.add('hidden');
+                        }, 500);
+                    }, 6000); 
+                } 
+            }; 
+            requestAnimationFrame(anim); 
+        }
+
+        // --- AYNA KARTLARI OYUNU ---
+        function createMirrorGrid() { 
+            const grid = document.getElementById('mirror-grid'); grid.innerHTML = ''; 
+            let vals = [...Array(3).fill(5), ...Array(5).fill(2), ...Array(7).fill(1)]; 
+            state.mirrorValues = vals.sort(() => Math.random() - 0.5); state.mirrorSelectionIndices = [];
+            for(let i=1; i<=state.mirrorCount; i++) { 
+                const val = state.mirrorValues[i-1];
+                grid.innerHTML += `<div class="mirror-wrapper"><div id="mirror-card-${i}" onclick="window.handleMirrorClick(${i})" class="mirror-card"><div class="mirror-front">${i}</div><div class="mirror-back val-${val}">${val}</div></div></div>`; 
+            } 
+        }
+
+        function renderMirrorRewardTable() { 
+            const table = document.getElementById('reward-pyramid'); table.innerHTML = ''; 
+            const sortedKeys = Object.keys(state.config.mirrorRewardsMap).sort((a,b) => parseInt(b)-parseInt(a)); 
+            sortedKeys.forEach(p => { table.innerHTML += `<div id="py-item-${p}" class="pyramid-item"><span>${p} PUAN</span><span>${state.config.mirrorRewardsMap[p]}</span></div>`; });
+        }
+
+        function updateMirrorSelectionDisplay() { document.getElementById('mirror-selection-count').innerText = `HAK: ${3 - state.mirrorSelections} / 3`; }
+        
+        window.handleMirrorClick = function(n) { 
+            if (!state.activePlayers.mirror) return window.showAlert("Önce OYUNCU SEÇ butonuna tıklayın!");
+            if(state.mirrorSelections >= 3) return; const card = document.getElementById(`mirror-card-${n}`); if(card.classList.contains('flipped')) return; 
+            
+            card.classList.add('flipped'); card.querySelector('.mirror-back').classList.add('selected-mirror');
+            state.mirrorSelections++; state.mirrorSelectionIndices.push(n); state.mirrorCurrentTotal += state.mirrorValues[n-1]; 
+            document.getElementById('mirror-total-score').innerText = state.mirrorCurrentTotal; document.getElementById('mirror-total-score-panel').classList.remove('opacity-0'); updateMirrorSelectionDisplay(); 
+            if(state.mirrorSelections === 3) finishMirrorRound(); 
+        }
+
+        function finishMirrorRound() { 
+            clearInterval(state.mirrorTimer.intervalId);
+            document.getElementById('mirror-timer-container').classList.add('hidden');
+
+            const total = state.mirrorCurrentTotal; const rewardText = state.config.mirrorRewardsMap[total] || "Ödül Yok"; 
+            document.querySelectorAll('.mirror-card').forEach(c => c.classList.add('flipped'));
+            document.querySelectorAll('.pyramid-item').forEach(i => i.classList.remove('highlight')); 
+            const highlightEl = document.getElementById(`py-item-${total}`); if(highlightEl) highlightEl.classList.add('highlight'); 
+            
+            const mirrorWinnerName = state.activePlayers.mirror.name; const imgUrl = window.findRewardImage(rewardText); const rewardDisplayEl = document.getElementById('mirror-reward-text');
+            
+            if(imgUrl) {
+                rewardDisplayEl.innerHTML = `<div class="flex flex-col items-center"><img src="${imgUrl}" class="w-20 h-20 object-contain mb-3 drop-shadow-[0_0_15px_rgba(255,255,255,0.4)] border border-amber-500/30 rounded-xl bg-black/80 p-2 shadow-lg"><span class="text-amber-500 drop-shadow-md">${rewardText}</span></div>`;
+            } else {
+                rewardDisplayEl.innerHTML = `<div class="flex flex-col items-center"><span class="text-amber-500 drop-shadow-md">${rewardText}</span></div>`;
+            }
+            document.getElementById('mirror-result-announcement').classList.remove('opacity-0', 'translate-y-4'); 
+            window.saveToArchive(mirrorWinnerName, "AYNA", `${total} Puan`, rewardText, "", true);
+
+            // --- SAYAÇ ARTIŞ MANTIĞI ---
+            if (rewardText !== "Çöp" && rewardText !== "Ödül Yok" && rewardText !== "Hiçbir Şey") {
+                state.totalMirrorRewards++;
+                const counterEl = document.getElementById('mirror-reward-counter-val');
+                if (counterEl) {
+                    counterEl.innerText = state.totalMirrorRewards;
+                    counterEl.classList.add('text-emerald-400', 'scale-125', 'transition-all');
+                    setTimeout(() => counterEl.classList.remove('text-emerald-400', 'scale-125'), 500);
+                }
+            }
+        }
+
+        window.resetMirrorRound = function() { 
+            document.getElementById('active-player-mirror-container').classList.add('hidden');
+            document.getElementById('btn-select-mirror').classList.remove('hidden');
+            state.activePlayers.mirror = null; state.mirrorSelections = 0; state.mirrorCurrentTotal = 0; 
+            document.getElementById('mirror-total-score-panel').classList.add('opacity-0'); document.getElementById('mirror-result-announcement').classList.add('opacity-0'); document.getElementById('mirror-total-score').innerText = "0"; 
+            document.querySelectorAll('.pyramid-item').forEach(i => i.classList.remove('highlight')); createMirrorGrid(); updateMirrorSelectionDisplay();
+        }
+
+        // --- SÜRÜKLE BIRAK (DRAG & DROP) MENÜ İŞLEMLERİ ---
+        document.addEventListener('DOMContentLoaded', () => {
+            const tabs = document.querySelectorAll('.tab-btn');
+            const container = document.getElementById('tab-container');
+            let draggedItem = null;
+
+            tabs.forEach(tab => {
+                tab.addEventListener('dragstart', function(e) {
+                    draggedItem = this;
+                    setTimeout(() => this.classList.add('dragging'), 0);
+                });
+
+                tab.addEventListener('dragend', function() {
+                    setTimeout(() => {
+                        this.classList.remove('dragging');
+                        draggedItem = null;
+                    }, 0);
+                });
+            });
+
+            container.addEventListener('dragover', function(e) {
+                e.preventDefault();
+                const afterElement = getDragAfterElement(container, e.clientX);
+                const draggable = document.querySelector('.dragging');
+                if (draggable) {
+                    if (afterElement == null) {
+                        container.appendChild(draggable);
+                    } else {
+                        container.insertBefore(draggable, afterElement);
+                    }
+                }
+            });
+
+            function getDragAfterElement(container, x) {
+                const draggableElements = [...container.querySelectorAll('.tab-btn:not(.dragging)')];
+                return draggableElements.reduce((closest, child) => {
+                    const box = child.getBoundingClientRect();
+                    const offset = x - box.left - box.width / 2;
+                    if (offset < 0 && offset > closest.offset) {
+                        return { offset: offset, element: child };
+                    } else {
+                        return closest;
+                    }
+                }, { offset: Number.NEGATIVE_INFINITY }).element;
+            }
+        });
+
+        window.onload = init;
+    </script>
+</body>
+</html>
