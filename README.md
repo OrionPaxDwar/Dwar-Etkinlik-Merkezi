@@ -1,1 +1,0 @@
-# Dwar-Etkinlik-Merkezi
